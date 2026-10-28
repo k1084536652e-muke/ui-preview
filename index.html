@@ -44,6 +44,9 @@
   --n-red:#ff3b30; --n-orange:#ff9500; --n-green:#34c759; --n-blue:#007aff; --n-grey:#8e8e93;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+/* 全局禁止文本选择 / iOS 长按菜单（计算器与相册均适用）；输入框、文本域、可编辑区域恢复 */
+body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable],[contenteditable] *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 ::-webkit-scrollbar{width:4px;height:4px;background:transparent}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:2px}
