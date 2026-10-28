@@ -240,6 +240,18 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .dlg .dbtns{display:grid;grid-template-columns:1fr 1fr;border-top:.5px solid var(--sep);margin-top:10px}
 .dlg .dbtns button{height:46px;font-size:16px}
 .dlg .dbtns button+button{border-left:.5px solid var(--sep);font-weight:650}
+/* 设置子页：解锁码 / 紧急清除码 */
+.nav-row.sub{padding:0 16px 0 4px}
+.nav-row.sub .back{width:40px;justify-content:center;flex:0 0 auto}
+.subpage{padding-bottom:8px}
+.subpage .frow .lab{min-width:96px}
+.subpage .frow input{letter-spacing:3px}
+.subpage .frow input::placeholder{letter-spacing:0}
+.subpage .ferr{padding:6px 16px 0}
+.subpage .cta{margin-top:20px}
+.infocard{margin-top:12px;background:var(--group);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--muted);line-height:1.55}
+.dangerbtn{display:block;width:100%;height:44px;margin-top:10px;font-size:16px;font-weight:550;color:var(--danger);text-align:center}
+.dangerbtn:disabled{opacity:.35;cursor:default}
 .toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 18px);transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:14px;padding:9px 16px;border-radius:18px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 </style>
 </head>
@@ -456,6 +468,7 @@ const S={
   plus:false,
   showNames:false,
   folder:null,
+  sub:null, /* 设置子页：null / "pin" / "wipe" */
   themePref:(function(){try{return localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
   repayment:"equal-payment",
   calcMode:"mortgage",
@@ -482,7 +495,7 @@ function toast(msg){
 
 function openAlbum(){
   S.view="album"; S.tab="photos"; S.search=false; S.q=""; S.filter="all";
-  S.select=false; S.sel=new Set(); S.plus=false; S.folder=null;
+  S.select=false; S.sel=new Set(); S.plus=false; S.folder=null; S.sub=null;
   document.getElementById("loan-amount").value="";
   document.getElementById("mortgage-result").hidden=true;
   document.getElementById("mortgage-error").hidden=true;
@@ -490,7 +503,7 @@ function openAlbum(){
   render();
 }
 function lock(){
-  S.view="calc"; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null;
+  S.view="calc"; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; S.sub=null;
   showView();
 }
 function showView(){
@@ -551,7 +564,9 @@ function render(){
   /* main album tabs — global header + bottom tab bar */
   bar.hidden=false;
   let navHTML="";
-  if(S.select){
+  if(S.tab==="settings"&&S.sub){
+    navHTML=`<div class="nav-row sub"><button type="button" class="back" data-act="back-sub" aria-label="返回">${ic("chevl")}</button><div class="nav-title"><b>${S.sub==="pin"?"解锁码":"紧急清除码"}</b></div></div>`;
+  } else if(S.select){
     const n=S.sel.size;
     navHTML=`<div class="nav-row three"><button type="button" class="txtbtn" data-act="cancel-select">取消</button><div class="mid">已选 ${n} 项</div><button type="button" class="txtbtn r" data-act="toggle-all">${n&&n===filteredItems().length?"取消全选":"全选"}</button></div>`;
   } else if(S.search){
@@ -599,6 +614,35 @@ function render(){
       const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
       return `<div class="row trow" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div><div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div></div>`;
     }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
+  } else if(S.tab==="settings"&&S.sub==="pin"){
+    body.innerHTML=`
+      <div class="page subpage">
+        <div class="gh">解锁码</div>
+        <div class="group">
+          <label class="row frow"><span class="lab">当前解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="12345" placeholder="请输入"></label>
+          <label class="row frow"><span class="lab">新解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="246810" placeholder="4–12 位数字"></label>
+          <label class="row frow err"><span class="lab">确认新解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="246801" placeholder="再次输入"></label>
+        </div>
+        <div class="ferr">两次输入不一致</div>
+        <p class="gf">解锁码为 4–12 位数字。在首页贷款金额中输入并点击计算即可进入。</p>
+        <button type="button" class="cta" data-act="noop">保存</button>
+      </div>`;
+  } else if(S.tab==="settings"&&S.sub==="wipe"){
+    body.innerHTML=`
+      <div class="page subpage">
+        <div class="gh">状态</div>
+        <div class="group">
+          <div class="row"><span>当前状态</span><span class="v">未配置</span></div>
+        </div>
+        <div class="infocard">配置后，在首页输入此码并点击计算，将清除本机所有内容，且无法恢复。须与解锁码不同。</div>
+        <div class="gh">设置清除码</div>
+        <div class="group">
+          <label class="row frow"><span class="lab">清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="4–12 位数字"></label>
+          <label class="row frow"><span class="lab">确认清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="再次输入"></label>
+        </div>
+        <button type="button" class="cta" data-act="noop">保存</button>
+        <button type="button" class="dangerbtn" disabled>关闭紧急清除</button>
+      </div>`;
   } else if(S.tab==="settings"){
     body.innerHTML=`
       <div class="page">
@@ -615,8 +659,8 @@ function render(){
         </div>
         <div class="gh">安全</div>
         <div class="group">
-          <button type="button" class="row" data-act="noop"><span>修改密码</span><span class="v">演示${ic("chev")}</span></button>
-          <button type="button" class="row" data-act="noop"><span>生物识别解锁</span><span class="v">关闭${ic("chev")}</span></button>
+          <button type="button" class="row" data-act="open-pin"><span>解锁码</span><span class="v">修改${ic("chev")}</span></button>
+          <button type="button" class="row" data-act="open-wipe"><span>紧急清除码</span><span class="v">未配置${ic("chev")}</span></button>
         </div>
         <div class="gh">关于</div>
         <div class="group">
@@ -709,7 +753,7 @@ function bindAlbum(){
     const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-folder],[data-id],[data-restore],[data-purge]");
     if(!t) return;
     if(t.dataset.themeSet!==undefined){ applyTheme(t.dataset.themeSet); render(); return; }
-    if(t.dataset.tab){ S.tab=t.dataset.tab; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; render(); return; }
+    if(t.dataset.tab){ S.tab=t.dataset.tab; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; S.sub=null; render(); return; }
     if(t.dataset.filter){ S.filter=t.dataset.filter; render(); return; }
     if(t.dataset.folder){ S.folder=t.dataset.folder; S.plus=false; render(); return; }
     if(t.dataset.restore){
@@ -739,6 +783,9 @@ function bindAlbum(){
     if(!act) return;
     if(act==="lock"){ lock(); return; }
     if(act==="back"){ S.tab="photos"; render(); return; }
+    if(act==="open-pin"){ S.sub="pin"; render(); return; }
+    if(act==="open-wipe"){ S.sub="wipe"; render(); return; }
+    if(act==="back-sub"){ S.sub=null; render(); return; }
     if(act==="back-folder"){ S.folder=null; render(); return; }
     if(act==="open-search"){ S.search=true; S.q=""; S.filter="all"; S.plus=false; render(); return; }
     if(act==="close-search"){ S.search=false; S.q=""; S.filter="all"; render(); return; }
