@@ -45,7 +45,7 @@
 ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:2px}
 ::-webkit-scrollbar-corner{background:transparent}
 @supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}}
-html,body{height:100%;background:var(--bg)}
+html,body{height:100%;height:100dvh;max-height:100dvh;background:var(--bg);overflow:hidden}
 body{color:var(--text);overflow:hidden;
   font-family:-apple-system,"SF Pro Text","PingFang SC","Noto Sans CJK SC","Noto Sans SC",sans-serif;
   -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
@@ -53,8 +53,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webki
 input{font:inherit;color:inherit}
 [hidden]{display:none!important}
 svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;display:block;flex:0 0 auto}
-.view{position:fixed;inset:0;background:var(--page);overflow:hidden}
-.nav{position:absolute;top:0;left:0;right:0;padding-top:var(--safe-top);padding-left:var(--safe-left);padding-right:var(--safe-right);background:var(--bar);
+.view{position:fixed;inset:0;width:100%;height:100%;height:100dvh;max-height:100dvh;background:var(--page);overflow:hidden;display:flex;flex-direction:column}
+.nav{position:relative;flex:0 0 auto;padding-top:var(--safe-top);padding-left:var(--safe-left);padding-right:var(--safe-right);background:var(--bar);
   -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);z-index:20;border-bottom:.5px solid var(--sep)}
 .nav-row{height:var(--nav-h);display:flex;align-items:center;padding:0 8px 0 16px}
 .nav-title{flex:1;display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap;overflow:hidden}
@@ -80,11 +80,11 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .seg{height:30px;border-radius:9px;background:var(--seg-bg);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:2px;gap:2px}
 .seg button{display:grid;place-items:center;font-size:13px;color:var(--muted);border-radius:7px;font-weight:500}
 .seg button.on{background:var(--seg-on);color:var(--text);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.18)}
-.scroll{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  padding-top:calc(var(--safe-top) + var(--nav-h) + 6px);padding-bottom:calc(var(--tab-h) + var(--safe-bottom) + 12px);
+.scroll{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding-top:6px;padding-bottom:12px;
   padding-left:var(--safe-left);padding-right:var(--safe-right)}
-.scroll.searching{padding-top:calc(var(--safe-top) + var(--nav-h) + 92px)}
-.scroll.notab{padding-bottom:calc(var(--safe-bottom) + 24px)}
+.scroll.searching{padding-top:6px}
+.scroll.notab{padding-bottom:24px}
 .sec{display:flex;align-items:center;justify-content:space-between;padding:8px 16px}
 .sec h3{font-size:13px;font-weight:650;color:var(--muted);letter-spacing:.2px}
 .sec button{font-size:13px;color:var(--text);display:flex;align-items:center;gap:1px}
@@ -126,7 +126,7 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .cell.sel .mark{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 0 0 1px var(--ring),0 1px 3px rgba(0,0,0,.3)}
 .mark svg.i{width:14px;height:14px;stroke-width:3}
 .empty-note{padding:48px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
-.tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(var(--tab-h) + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+.tabbar{position:relative;flex:0 0 auto;height:calc(var(--tab-h) + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
   border-top:.5px solid var(--sep);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;z-index:20}
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:6px;gap:3px;color:var(--muted);font-size:10px;font-weight:550;position:relative}
@@ -141,6 +141,8 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .fab.open svg.i{transform:rotate(45deg)}
 [data-theme=day] .fab{background:#fff;color:#000;border:2px solid #000;box-shadow:0 3px 10px rgba(0,0,0,.12)}
 .scrim{position:absolute;inset:0;background:var(--scrim);z-index:15}
+#a-overlay{position:absolute;inset:0;pointer-events:none;z-index:15}
+#a-overlay:not(:empty){pointer-events:auto}
 .pop{position:absolute;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 10px);transform:translateX(-50%);width:236px;background:var(--sheet);border-radius:14px;z-index:25;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .pop button{width:100%;height:50px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:16px;border-bottom:.5px solid var(--sep);text-align:left}
 .pop button:last-child{border:0}
@@ -167,8 +169,8 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .tmeta b{display:block;font-size:15px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tmeta small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .tdays{font-size:12px;color:var(--muted);white-space:nowrap}
-.calc{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:calc(var(--safe-top) + var(--nav-h) + 12px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 16px)}
+.calc{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:12px calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 16px)}
 .calc-inner{max-width:560px;margin:0 auto}
 .calc .seg{height:34px;margin:0 0 14px}
 .calc .seg button{font-size:14px}
@@ -271,8 +273,8 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 
 <!-- ========== 后台（相册） ========== -->
 <section class="view" id="v-album" aria-label="相册" hidden>
-  <div class="scroll" id="a-body"></div>
   <header class="nav" id="a-nav"></header>
+  <div class="scroll" id="a-body"></div>
   <div id="a-overlay"></div>
   <nav class="tabbar" id="a-bar"></nav>
 </section>
@@ -317,25 +319,28 @@ const palettes=[
 ];
 function photo(seed,kind){
   const r=rng(seed*9301+49297), p=palettes[seed%palettes.length];
-  let s=`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 100 100' preserveAspectRatio='xMidYMid slice'><defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='${p[1]}'/><stop offset='1' stop-color='${p[0]}'/></linearGradient><radialGradient id='g' cx='.5' cy='.5' r='.5'><stop offset='0' stop-color='#fff' stop-opacity='.9'/><stop offset='1' stop-color='#fff' stop-opacity='0'/></radialGradient></defs>`;
+  const uid='p'+seed+kind;
+  let s=`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="${uid}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p[1]}"/><stop offset="1" stop-color="${p[0]}"/></linearGradient><radialGradient id="${uid}g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`;
   if(kind==="macro"){
-    s+=`<rect width='100' height='100' fill='${p[3]}'/>`;
-    for(let k=0;k<5;k++){const cx=r()*100,cy=r()*100,rr=18+r()*30;s+=`<circle cx='${cx}' cy='${cy}' r='${rr}' fill='${p[k%3]}' opacity='${.35+r()*.4}'/>`}
-    s+=`<rect width='100' height='100' fill='url(#g)' opacity='.15'/>`;
+    s+=`<rect width="100" height="100" fill="${p[3]}"/>`;
+    for(let k=0;k<5;k++){const cx=r()*100,cy=r()*100,rr=18+r()*30;s+=`<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${p[k%3]}" opacity="${.35+r()*.4}"/>`}
+    s+=`<rect width="100" height="100" fill="url(#${uid}g)" opacity=".15"/>`;
   } else if(kind==="city"){
-    s+=`<rect width='100' height='100' fill='url(#s)'/>`;
-    let x=0;while(x<100){const w=8+r()*14,h=25+r()*45;s+=`<rect x='${x}' y='${100-h}' width='${w}' height='${h}' fill='${p[3+(r()>.5?1:0)]}'/>`;
-      for(let yy=100-h+5;yy<96;yy+=7)for(let xx=x+2;xx<x+w-3;xx+=5) if(r()>.55) s+=`<rect x='${xx}' y='${yy}' width='2' height='3' fill='${p[0]}' opacity='.8'/>`;
+    s+=`<rect width="100" height="100" fill="url(#${uid}s)"/>`;
+    let x=0;while(x<100){const w=8+r()*14,h=25+r()*45;s+=`<rect x="${x}" y="${100-h}" width="${w}" height="${h}" fill="${p[3+(r()>.5?1:0)]}"/>`;
+      for(let yy=100-h+5;yy<96;yy+=7)for(let xx=x+2;xx<x+w-3;xx+=5) if(r()>.55) s+=`<rect x="${xx}" y="${yy}" width="2" height="3" fill="${p[0]}" opacity=".8"/>`;
       x+=w+1;}
   } else {
     const hz=45+r()*20;
-    s+=`<rect width='100' height='100' fill='url(#s)'/>`;
-    s+=`<circle cx='${20+r()*60}' cy='${hz-12-r()*15}' r='${6+r()*6}' fill='#fff' opacity='.75'/>`;
-    const ridge=(base,amp,col,op)=>{let d=`M0 100 L0 ${base}`;for(let x=0;x<=100;x+=10)d+=` L${x} ${base-r()*amp}`;d+=` L100 100Z`;return `<path d='${d}' fill='${col}' opacity='${op}'/>`};
+    s+=`<rect width="100" height="100" fill="url(#${uid}s)"/>`;
+    s+=`<circle cx="${20+r()*60}" cy="${hz-12-r()*15}" r="${6+r()*6}" fill="#fff" opacity=".75"/>`;
+    const ridge=(base,amp,col,op)=>{let d=`M0 100 L0 ${base}`;for(let x=0;x<=100;x+=10)d+=` L${x} ${base-r()*amp}`;d+=` L100 100Z`;return `<path d="${d}" fill="${col}" opacity="${op}"/>`};
     s+=ridge(hz,18,p[2],.9)+ridge(hz+12,14,p[3],1)+ridge(hz+26,8,p[4],1);
   }
   s+=`</svg>`;
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(s).replace(/'/g,"%27")}")`;
+  /* base64 + single-quoted url() — avoids breaking style="..." and works in iOS Safari */
+  const b64=btoa(unescape(encodeURIComponent(s)));
+  return `url('data:image/svg+xml;base64,${b64}')`;
 }
 
 /* ========== 财务计算（移植自 calc-vault/js/finance.js） ========== */
@@ -869,6 +874,7 @@ function wireCalc(){
 applyTheme(S.themePref);
 wireCalc();
 showView();
+
 
 </script>
 </body>
