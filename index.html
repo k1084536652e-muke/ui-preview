@@ -11,6 +11,9 @@
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
 <title>房贷计算器 · 商业贷款与个税估算</title>
+<!-- Plyr（MIT，https://github.com/sampotts/plyr）本地内置，离线可用，不依赖 CDN -->
+<link rel="stylesheet" href="vendor/plyr/plyr.css">
+<script src="vendor/plyr/plyr.min.js"></script>
 <script>
 /* 尽早应用主题，避免闪烁。明文键 calc-theme：night / day / system */
 (function(){try{var p=localStorage.getItem("calc-theme")||"night";var t=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"night":"day"):p;document.documentElement.setAttribute("data-theme",t==="day"?"day":"night");}catch(e){}})();
@@ -371,6 +374,41 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .empty-state p{color:var(--muted)}
 .row .ck{margin-left:auto;color:var(--text)}
 .row .ck svg.i{width:20px;height:20px;stroke-width:2.4}
+/* 视频播放页（Plyr，单色主题；控件在视频上方，两种主题都用白色控件） */
+.vplayer{background:#000}
+.vplayer .vbar{z-index:6;transition:opacity .3s ease,transform .3s ease}
+.vplayer.chrome-hidden .vbar{opacity:0;transform:translateY(-8px);pointer-events:none}
+.vstage{position:absolute;inset:0}
+.vstage .plyr{height:100%;
+  --plyr-color-main:#fff; --plyr-video-control-color:#fff; --plyr-video-control-color-hover:#fff;
+  --plyr-video-control-background-hover:rgba(255,255,255,.16); --plyr-control-radius:8px; --plyr-control-spacing:8px; --plyr-control-icon-size:20px;
+  --plyr-range-track-height:3px; --plyr-range-thumb-height:12px; --plyr-range-thumb-background:#fff; --plyr-range-thumb-shadow:0 1px 3px rgba(0,0,0,.35);
+  --plyr-video-progress-buffered-background:rgba(255,255,255,.38); --plyr-video-range-track-background:rgba(255,255,255,.2);
+  --plyr-video-controls-background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.72));
+  --plyr-menu-background:rgba(28,28,30,.97); --plyr-menu-color:#fff; --plyr-menu-radius:14px; --plyr-menu-arrow-color:#8e8e93;
+  --plyr-menu-back-border-color:rgba(255,255,255,.12); --plyr-menu-back-border-shadow-color:transparent; --plyr-menu-shadow:0 12px 40px rgba(0,0,0,.45);
+  --plyr-control-toggle-checked-background:#fff; --plyr-tooltip-background:#fff; --plyr-tooltip-color:#000; --plyr-tooltip-radius:8px;
+  --plyr-font-family:inherit; --plyr-font-size-menu:15px; --plyr-font-size-time:13px; --plyr-focus-visible-color:#fff}
+[data-theme=day] .vstage .plyr{--plyr-menu-background:rgba(255,255,255,.98); --plyr-menu-color:#000; --plyr-menu-back-border-color:rgba(0,0,0,.12); --plyr-control-toggle-checked-background:#000}
+.vstage .plyr__menu__container .plyr__control[role=menuitemradio]::after{background:var(--bg);left:17px}
+.vstage .plyr__menu__container .plyr__control[role=menuitemradio]::before{background:rgba(127,127,127,.28)}
+.vstage .plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]::before{background:var(--plyr-control-toggle-checked-background)}
+.vstage .plyr__menu__container [role=menu]{padding:6px}
+.vstage .plyr__menu__container .plyr__control{padding:9px 12px;border-radius:9px}
+.vstage .plyr__menu__container .plyr__control:hover{background:rgba(127,127,127,.16);color:inherit}
+.vstage .plyr__control--overlaid{background:rgba(255,255,255,.92);color:#000;padding:20px;opacity:1}
+.vstage .plyr__control--overlaid svg{width:30px;height:30px;left:2px}
+.vstage .plyr__control--overlaid:hover{background:#fff;color:#000}
+.vstage .plyr__controls{flex-wrap:wrap;row-gap:2px;padding:28px calc(var(--safe-right) + 8px) calc(var(--safe-bottom) + 8px) calc(var(--safe-left) + 8px)}
+.vstage .plyr__controls .plyr__progress__container{order:-1;flex:1 0 100%;margin:0;padding:0 6px!important}
+.vstage .plyr__controls .plyr__controls__item:first-child{margin-right:0}
+.vstage .plyr__controls .plyr__time{font-size:13px;padding:0 4px}
+.vstage .plyr__controls .plyr__time+.plyr__time{display:block}
+.vstage .plyr__controls .plyr__time--duration{margin-right:auto}
+@media (max-width:600px){.vstage .plyr__volume input[type=range]{display:none}.vstage .plyr__volume{min-width:0;max-width:none;width:auto}}
+.vseek{position:absolute;top:50%;z-index:5;transform:translateY(-50%) scale(.9);padding:10px 16px;border-radius:20px;background:rgba(0,0,0,.5);color:#fff;font-size:15px;font-weight:650;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.vseek.l{left:12%}.vseek.r{right:12%}
+.vseek.show{opacity:1;transform:translateY(-50%) scale(1)}
 /* 统一 Toast：底部居中、Tab 栏上方，约 2s 后淡出 */
 .toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 14px);transform:translate(-50%,6px);background:var(--text);color:var(--bg);font-size:14px;font-weight:550;padding:8px 16px;border-radius:17px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -1291,8 +1329,71 @@ function prompt2(title, value, suffix, onOk){
   return dialog({title, input:{value, suffix}, ok:"确定", onOk});
 }
 
+function findItem(id){ return ITEMS.find(x=>x.id===id)||(S.folder?folderItems().find(x=>x.id===id):null); }
+const PLYR_I18N={restart:"重新播放",rewind:"后退 {seektime} 秒",play:"播放",pause:"暂停",fastForward:"快进 {seektime} 秒",seek:"跳转",seekLabel:"{currentTime} / {duration}",played:"已播放",buffered:"已缓冲",currentTime:"当前时间",duration:"时长",volume:"音量",mute:"静音",unmute:"取消静音",enterFullscreen:"全屏",exitFullscreen:"退出全屏",settings:"设置",menuBack:"返回上一级",speed:"播放速度",normal:"正常",quality:"画质",loop:"循环",start:"开始",end:"结束",all:"全部",reset:"重置",disabled:"关闭",enabled:"开启"};
+/* 视频播放页：Plyr。正式应用中 src 为解密后 Blob 的 object URL（URL.createObjectURL），关闭时 revoke。 */
+function openVideo(it){
+  const layer=document.getElementById("layer");
+  const v=document.createElement("div");
+  v.className="viewer vplayer";
+  v.innerHTML=`<div class="vstage"><video playsinline webkit-playsinline preload="metadata" src="media/demo.mp4"></video>
+      <div class="vseek l">−10 秒</div><div class="vseek r">+10 秒</div></div>
+    <div class="vbar"><button type="button" class="vbtn" data-x="back">${ic("chevl")}返回</button>
+    <b>${esc(it.name)}</b>
+    <button type="button" class="vbtn" data-x="ren">${ic("pen")}重命名</button></div>`;
+  layer.appendChild(v);
+  const video=v.querySelector("video");
+  let player=null;
+  if(window.Plyr){
+    player=new Plyr(video,{
+      controls:["play-large","rewind","play","fast-forward","progress","current-time","duration","mute","volume","settings","fullscreen"],
+      settings:["speed"], speed:{selected:1,options:[0.5,0.75,1,1.25,1.5,2]}, seekTime:10,
+      invertTime:false, toggleInvert:false, displayDuration:true, hideControls:true, resetOnEnd:false,
+      fullscreen:{enabled:true,fallback:true,iosNative:true},
+      tooltips:{controls:false,seek:true}, keyboard:{focused:true,global:false},
+      iconUrl:"vendor/plyr/plyr.svg", blankVideo:"vendor/plyr/blank.mp4", i18n:PLYR_I18N
+    });
+    player.on("controlshidden",()=>v.classList.add("chrome-hidden"));
+    player.on("controlsshown",()=>v.classList.remove("chrome-hidden"));
+    v._player=player;
+  } else { video.controls=true; }
+  /* 双击 / 双指点左右三分之一：−10 / +10 秒（中间保留 Plyr 的双击全屏） */
+  const stage=v.querySelector(".vstage");
+  let last=0, lastSide="";
+  const sideOf=x=>{ const r=stage.getBoundingClientRect(), f=(x-r.left)/r.width; return f<1/3?"l":f>2/3?"r":""; };
+  const bubble=side=>{ const b=v.querySelector(".vseek."+side); b.classList.add("show"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("show"),500); };
+  stage.addEventListener("pointerup",e=>{
+    if(e.target.closest(".plyr__controls,.plyr__menu__container,.plyr__control--overlaid")) return;
+    const side=sideOf(e.clientX), now=Date.now();
+    if(side&&side===lastSide&&now-last<300){
+      const d=side==="l"?-10:10;
+      video.currentTime=Math.max(0,Math.min((video.duration||0),video.currentTime+d));
+      bubble(side); last=0; lastSide=""; return;
+    }
+    last=now; lastSide=side;
+  },true);
+  stage.addEventListener("dblclick",e=>{ if(sideOf(e.clientX)) e.stopPropagation(); },true);
+  const close=()=>{ try{ player&&player.destroy(); }catch(_){} v.remove(); };
+  v.addEventListener("click",(e)=>{
+    const b=e.target.closest("[data-x]");
+    if(!b) return;
+    if(b.dataset.x==="back"){ close(); return; }
+    if(b.dataset.x==="ren"){
+      const {base,ext}=splitName(it.name);
+      prompt2("重命名", base, ext||".mp4", (val)=>{
+        if(!val.trim()) return "名称不能为空";
+        it.name=val.trim()+(ext||".mp4");
+        v.querySelector(".vbar b").textContent=it.name;
+        toast("已重命名");
+        return true;
+      });
+    }
+  });
+  return v;
+}
 function openViewer(id){
-  const it=ITEMS.find(x=>x.id===id);
+  const it=findItem(id);
+  if(it&&it.video&&!it.doc){ openVideo(it); return; }
   if(!it||it.doc){ toast(it?("文档："+it.name):"无法打开"); return; }
   const layer=document.getElementById("layer");
   const v=document.createElement("div");
