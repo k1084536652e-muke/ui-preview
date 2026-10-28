@@ -286,6 +286,7 @@ const I = {
  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
  check:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
  lock:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+ house:'<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
  grid:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
@@ -517,9 +518,70 @@ function render(){
   const overlay=document.getElementById("a-overlay");
   overlay.innerHTML="";
 
-  if(S.tab==="settings"){
-    nav.innerHTML=`<div class="nav-row three"><button type="button" class="back" data-act="back">${ic("chevl")}返回</button><div class="mid">设置</div><span class="r"></span></div>`;
+  if(S.folder){
+    const f=FOLDERS.find(x=>x.id===S.folder);
+    nav.innerHTML=`<div class="nav-row three"><button type="button" class="back" data-act="back-folder">${ic("chevl")}返回</button><div class="mid">${esc(f?f.n:"文件夹")}</div><span class="r"></span></div>`;
     body.className="scroll notab";
+    const coverSeeds=f&&f.s.length?f.s:[11,5,8];
+    const fake=[0,1,2,3,4,5].map((i,idx)=>({id:"fd"+idx,seed:coverSeeds[i%coverSeeds.length]+i*3,kind:kinds[i%3],name:(f?f.n:"")+" · "+(i+1),video:false,doc:false}));
+    body.innerHTML=`<div class="grid ${S.showNames?"names":""}">${fake.map(it=>tileHTML(it,false)).join("")}</div>`;
+    bar.hidden=true;
+    bindAlbum();
+    return;
+  }
+
+  /* main album tabs — global header + bottom tab bar */
+  bar.hidden=false;
+  let navHTML="";
+  if(S.select){
+    const n=S.sel.size;
+    navHTML=`<div class="nav-row three"><button type="button" class="txtbtn" data-act="cancel-select">取消</button><div class="mid">已选 ${n} 项</div><button type="button" class="txtbtn r" data-act="toggle-all">${n&&n===filteredItems().length?"取消全选":"全选"}</button></div>`;
+  } else if(S.search){
+    navHTML=`<div class="nav-row"><button type="button" class="txtbtn" data-act="close-search">取消</button>
+      <div class="nav-title" style="flex:0"></div></div>
+      <div class="search-wrap"><div class="field">${ic("search")}<input id="q" type="search" placeholder="搜索" value="${esc(S.q)}" enterkeyhint="search" autocomplete="off"><button type="button" class="clr" data-act="clear-q" ${S.q?"":"hidden"}><span>${ic("x")}</span></button></div>
+      <div class="seg" id="filter-seg">
+        <button type="button" data-filter="all" class="${S.filter==="all"?"on":""}">全部</button>
+        <button type="button" data-filter="photo" class="${S.filter==="photo"?"on":""}">照片</button>
+        <button type="button" data-filter="video" class="${S.filter==="video"?"on":""}">视频</button>
+        <button type="button" data-filter="doc" class="${S.filter==="doc"?"on":""}">文档</button>
+      </div></div>`;
+  } else {
+    const titles={photos:["首页", `${aliveItems().length} 项`], folders:["文件夹", `${FOLDERS.length} 个`], trash:["回收站", `${TRASH.length} 项`], settings:["设置", ""]};
+    const [title, count]=titles[S.tab]||["首页",""];
+    const showSelect=S.tab!=="settings";
+    navHTML=`<div class="nav-row"><div class="nav-title"><b>${title}</b>${count?`<small>${count}</small>`:""}</div>
+      <button type="button" class="ibtn" data-act="open-search" aria-label="搜索">${ic("search")}</button>
+      ${showSelect?`<button type="button" class="ibtn" data-act="enter-select" aria-label="选择">${ic("check")}</button>`:""}
+      <button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button></div>`;
+  }
+  nav.innerHTML=navHTML;
+
+  body.className="scroll"+(S.search?" searching":"");
+
+  if(S.search){
+    const list=filteredItems();
+    body.innerHTML=!list.length?`<div class="empty-note">没有匹配的项目</div>`:`<div class="grid ${S.showNames?"names":""}">${list.map(it=>tileHTML(it,false)).join("")}</div>`;
+  } else if(S.tab==="photos"){
+    let html="";
+    if(!S.select){
+      html+=`<div class="sec"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
+      html+=`<div class="folders">${FOLDERS.map(f=>`<button type="button" class="fcard" data-folder="${f.id}">${folderCover(f)}<div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`).join("")}</div>`;
+      html+=`<div class="sec"><h3>最近</h3></div>`;
+    }
+    const list=filteredItems();
+    if(!list.length) html+=`<div class="empty-note">没有匹配的项目</div>`;
+    else html+=`<div class="grid ${S.showNames?"names":""}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`;
+    body.innerHTML=html;
+  } else if(S.tab==="folders"){
+    body.innerHTML=`<div class="fgrid" style="padding-top:8px">${FOLDERS.map(f=>`<button type="button" class="fcard" data-folder="${f.id}">${folderCover(f)}<div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`).join("")}</div>`;
+  } else if(S.tab==="trash"){
+    if(!TRASH.length) body.innerHTML=`<div class="empty-note">回收站为空</div>`;
+    else body.innerHTML=`<div class="page"><div class="group">${TRASH.map(t=>{
+      const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
+      return `<div class="row trow" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button></div>`;
+    }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
+  } else if(S.tab==="settings"){
     body.innerHTML=`
       <div class="page">
         <div class="gh">外观</div>
@@ -543,74 +605,6 @@ function render(){
           <button type="button" class="row" data-act="noop"><span>版本</span><span class="v">原型 0.1</span></button>
         </div>
       </div>`;
-    bar.hidden=true;
-    bindAlbum();
-    return;
-  }
-
-  if(S.folder){
-    const f=FOLDERS.find(x=>x.id===S.folder);
-    nav.innerHTML=`<div class="nav-row three"><button type="button" class="back" data-act="back-folder">${ic("chevl")}返回</button><div class="mid">${esc(f?f.n:"文件夹")}</div><span class="r"></span></div>`;
-    body.className="scroll notab";
-    const coverSeeds=f&&f.s.length?f.s:[11,5,8];
-    const fake=[0,1,2,3,4,5].map((i,idx)=>({id:"fd"+idx,seed:coverSeeds[i%coverSeeds.length]+i*3,kind:kinds[i%3],name:(f?f.n:"")+" · "+(i+1),video:false,doc:false}));
-    body.innerHTML=`<div class="grid ${S.showNames?"names":""}">${fake.map(it=>tileHTML(it,false)).join("")}</div>`;
-    bar.hidden=true;
-    bindAlbum();
-    return;
-  }
-
-  /* main album tabs */
-  bar.hidden=false;
-  let navHTML="";
-  if(S.select){
-    const n=S.sel.size;
-    navHTML=`<div class="nav-row three"><button type="button" class="txtbtn" data-act="cancel-select">取消</button><div class="mid">已选 ${n} 项</div><button type="button" class="txtbtn r" data-act="toggle-all">${n&&n===filteredItems().length?"取消全选":"全选"}</button></div>`;
-  } else if(S.search){
-    navHTML=`<div class="nav-row"><button type="button" class="txtbtn" data-act="close-search">取消</button>
-      <div class="nav-title" style="flex:0"></div></div>
-      <div class="search-wrap"><div class="field">${ic("search")}<input id="q" type="search" placeholder="搜索" value="${esc(S.q)}" enterkeyhint="search" autocomplete="off"><button type="button" class="clr" data-act="clear-q" ${S.q?"":"hidden"}><span>${ic("x")}</span></button></div>
-      <div class="seg" id="filter-seg">
-        <button type="button" data-filter="all" class="${S.filter==="all"?"on":""}">全部</button>
-        <button type="button" data-filter="photo" class="${S.filter==="photo"?"on":""}">照片</button>
-        <button type="button" data-filter="video" class="${S.filter==="video"?"on":""}">视频</button>
-        <button type="button" data-filter="doc" class="${S.filter==="doc"?"on":""}">文档</button>
-      </div></div>`;
-  } else if(S.tab==="photos"){
-    navHTML=`<div class="nav-row"><div class="nav-title"><b>全部</b><small>${aliveItems().length} 项</small></div>
-      <button type="button" class="ibtn" data-act="open-search" aria-label="搜索">${ic("search")}</button>
-      <button type="button" class="ibtn" data-act="enter-select" aria-label="选择">${ic("check")}</button>
-      <button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button></div>`;
-  } else if(S.tab==="folders"){
-    navHTML=`<div class="nav-row"><div class="nav-title"><b>文件夹</b></div>
-      <button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button></div>`;
-  } else if(S.tab==="trash"){
-    navHTML=`<div class="nav-row"><div class="nav-title"><b>回收站</b><small>${TRASH.length} 项</small></div>
-      <button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button></div>`;
-  }
-  nav.innerHTML=navHTML;
-
-  body.className="scroll"+(S.search?" searching":"");
-
-  if(S.tab==="photos"){
-    let html="";
-    if(!S.search && !S.select){
-      html+=`<div class="sec"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
-      html+=`<div class="folders">${FOLDERS.map(f=>`<button type="button" class="fcard" data-folder="${f.id}">${folderCover(f)}<div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`).join("")}</div>`;
-      html+=`<div class="sec"><h3>最近</h3></div>`;
-    }
-    const list=filteredItems();
-    if(!list.length) html+=`<div class="empty-note">没有匹配的项目</div>`;
-    else html+=`<div class="grid ${S.showNames?"names":""}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`;
-    body.innerHTML=html;
-  } else if(S.tab==="folders"){
-    body.innerHTML=`<div class="fgrid" style="padding-top:8px">${FOLDERS.map(f=>`<button type="button" class="fcard" data-folder="${f.id}">${folderCover(f)}<div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`).join("")}</div>`;
-  } else if(S.tab==="trash"){
-    if(!TRASH.length) body.innerHTML=`<div class="empty-note">回收站为空</div>`;
-    else body.innerHTML=`<div class="page"><div class="group">${TRASH.map(t=>{
-      const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
-      return `<div class="row trow" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button></div>`;
-    }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
   }
 
   /* tab bar */
@@ -627,14 +621,14 @@ function render(){
     bar.className="tabbar";
     const trashCount=TRASH.length;
     bar.innerHTML=`
-      <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos">${ic("grid")}<span>全部</span></button>
+      <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos">${ic("house")}<span>首页</span></button>
       <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders">${ic("folder")}<span>文件夹</span></button>
       <button type="button" class="tab" data-act="plus" aria-label="添加"><span class="fab ${S.plus?"open":""}">${ic("plus")}</span></button>
       <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash">${ic("trash")}<span>回收站</span>${trashCount?`<span class="badge">${trashCount}</span>`:""}</button>
       <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings">${ic("gear")}<span>设置</span></button>`;
   }
 
-  if(S.plus){
+    if(S.plus){
     overlay.innerHTML=`<div class="scrim" data-act="close-plus"></div>
       <div class="pop">
         <button type="button" data-act="add-photo">${ic("imgplus")}添加照片</button>
