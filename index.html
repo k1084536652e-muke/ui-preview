@@ -328,6 +328,36 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .swatches{display:flex;justify-content:space-between;padding:2px 2px 0}
 .sw{width:30px;height:30px;border-radius:15px;border:.5px solid var(--sep)}
 .sw.on{box-shadow:0 0 0 2px var(--fs-sheet),0 0 0 4px var(--text)}
+/* 原地搜索面板：从顶栏下方展开 / 收起 */
+.nav .ibtn.on{background:var(--surface-2)}
+.nav-row.sub.icons{padding-right:8px}
+.sbox{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1)}
+.sbox>div{min-height:0;overflow:hidden}
+.sbox .search-wrap{opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
+.sbox.open{grid-template-rows:1fr}
+.sbox.open .search-wrap{opacity:1;transform:none}
+/* 原地多选：选择条贴在 Tab 栏上方，不替换 Tab 栏 */
+.selbar{position:relative;flex:0 0 auto;height:44px;display:flex;align-items:center;gap:6px;padding:0 calc(var(--safe-right) + 8px) 0 calc(var(--safe-left) + 16px);
+  background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--sep);z-index:19}
+.selbar.last{height:calc(44px + var(--safe-bottom));padding-bottom:var(--safe-bottom)}
+.selbar .sc{font-size:14px;color:var(--muted);white-space:nowrap}
+.selbar .sc b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+.sacts{margin-left:auto;display:flex;gap:2px}
+.sbtn{height:36px;padding:0 7px;display:flex;align-items:center;gap:4px;font-size:14px;color:var(--text);border-radius:8px;white-space:nowrap}
+.sbtn svg.i{width:19px;height:19px}
+.sbtn.danger{color:var(--danger)}
+.sbtn:disabled{opacity:.35;cursor:default}
+#v-album.selmode ~ #layer .toast{bottom:calc(var(--tab-h) + var(--safe-bottom) + 58px)}
+.fwrap{position:relative}
+.fwrap::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none}
+.fgrid .fwrap::after{border-radius:12px}
+.fcard.sel .fwrap::after{box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 4px var(--ring)}
+.fcover.empty+.mark{border-color:var(--faint);background:transparent;box-shadow:none}
+.fcard.sel .mark{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 0 0 1px var(--ring),0 1px 3px rgba(0,0,0,.3)}
+.rsel{flex:0 0 auto;width:22px;height:22px;border-radius:11px;border:1.5px solid var(--faint);display:grid;place-items:center}
+.row.sel .rsel{background:var(--text);border-color:var(--text);color:var(--bg)}
+.rsel svg.i{width:14px;height:14px;stroke-width:3}
+@media (prefers-reduced-motion:reduce){.sbox,.sbox .search-wrap{transition:none!important}}
 /* 统一 Toast：底部居中、Tab 栏上方，约 2s 后淡出 */
 .toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 14px);transform:translate(-50%,6px);background:var(--text);color:var(--bg);font-size:14px;font-weight:550;padding:8px 16px;border-radius:17px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -384,6 +414,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 <section class="view" id="v-album" aria-label="相册" hidden>
   <header class="nav" id="a-nav"></header>
   <div class="scroll" id="a-body"></div>
+  <div class="selbar" id="a-sel" hidden></div>
   <div id="a-overlay"></div>
   <nav class="tabbar" id="a-bar"></nav>
 </section>
@@ -557,7 +588,8 @@ const S={
   showNames:false,
   folder:null,
   sub:null,
-  doc:null, /* 文档页：{id,title,isNew,mode:"view"|"edit",sheet:bool} */ /* 设置子页：null / "pin" / "wipe" */
+  doc:null,
+  searchAnim:false, sort:"recent", /* 文档页：{id,title,isNew,mode:"view"|"edit",sheet:bool} */ /* 设置子页：null / "pin" / "wipe" */
   themePref:(function(){try{return localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
   repayment:"equal-payment",
   calcMode:"mortgage",
@@ -641,139 +673,55 @@ function render(){
   overlay.innerHTML="";
   body.style.paddingBottom="";
 
-  if(S.folder){
-    const f=FOLDERS.find(x=>x.id===S.folder);
-    nav.innerHTML=`<div class="nav-row three"><button type="button" class="back" data-act="back-folder">${ic("chevl")}返回</button><div class="mid">${esc(f?f.n:"文件夹")}</div><button type="button" class="ibtn r" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button></div>`;
-    body.className="scroll notab";
-    const coverSeeds=f&&f.s.length?f.s:[11,5,8];
-    const fake=[0,1,2,3,4,5].map((i,idx)=>({id:"fd"+idx,seed:coverSeeds[i%coverSeeds.length]+i*3,kind:kinds[i%3],name:(f?f.n:"")+" · "+(i+1),video:false,doc:false}));
-    body.innerHTML=`<div class="grid ${S.showNames?"names":""}">${fake.map(it=>tileHTML(it,false)).join("")}</div>`;
-    bar.hidden=true;
-    bindAlbum();
-    return;
-  }
+  const sb=document.getElementById("a-sel");
+  const root=document.getElementById("v-album");
+  sb.hidden=true; root.classList.remove("selmode");
 
   if(S.doc){ renderDoc(nav,body,bar,overlay); bindAlbum(); return; }
 
-  /* main album tabs — global header + bottom tab bar */
-  bar.hidden=false;
-  let navHTML="";
-  if(S.tab==="settings"&&S.sub){
-    navHTML=`<div class="nav-row sub"><button type="button" class="back" data-act="back-sub" aria-label="返回">${ic("chevl")}</button><div class="nav-title"><b>${S.sub==="pin"?"解锁码":"紧急清除码"}</b></div></div>`;
-  } else if(S.select){
-    const n=S.sel.size;
-    navHTML=`<div class="nav-row three"><button type="button" class="txtbtn" data-act="cancel-select">取消</button><div class="mid">已选 ${n} 项</div><button type="button" class="txtbtn r" data-act="toggle-all">${n&&n===filteredItems().length?"取消全选":"全选"}</button></div>`;
-  } else if(S.search){
-    navHTML=`<div class="nav-row"><button type="button" class="txtbtn" data-act="close-search">取消</button>
-      <div class="nav-title" style="flex:0"></div></div>
-      <div class="search-wrap"><div class="field">${ic("search")}<input id="q" type="search" placeholder="搜索" value="${esc(S.q)}" enterkeyhint="search" autocomplete="off"><button type="button" class="clr" data-act="clear-q" ${S.q?"":"hidden"}><span>${ic("x")}</span></button></div>
-      <div class="seg" id="filter-seg">
-        <button type="button" data-filter="all" class="${S.filter==="all"?"on":""}">全部</button>
-        <button type="button" data-filter="photo" class="${S.filter==="photo"?"on":""}">照片</button>
-        <button type="button" data-filter="video" class="${S.filter==="video"?"on":""}">视频</button>
-        <button type="button" data-filter="doc" class="${S.filter==="doc"?"on":""}">文档</button>
-      </div></div>`;
+  const ctx=curCtx();
+  const f=S.folder?FOLDERS.find(x=>x.id===S.folder):null;
+  bar.hidden=!!S.folder;
+
+  /* ---- 全局顶栏（含原地搜索面板） ---- */
+  if(ctx==="settings"&&S.sub){
+    nav.innerHTML=`<div class="nav-row sub"><button type="button" class="back" data-act="back-sub" aria-label="返回">${ic("chevl")}</button><div class="nav-title"><b>${S.sub==="pin"?"解锁码":"紧急清除码"}</b></div></div>`;
   } else {
-    const titles={photos:["首页", `${aliveItems().length} 项`], folders:["文件夹", `${FOLDERS.length} 个`], trash:["回收站", `${TRASH.length} 项`], settings:["设置", ""]};
-    const [title, count]=titles[S.tab]||["首页",""];
-    const showSelect=S.tab!=="settings";
-    navHTML=`<div class="nav-row"><div class="nav-title"><b>${title}</b>${count?`<small>${count}</small>`:""}</div>
-      <button type="button" class="ibtn" data-act="open-search" aria-label="搜索">${ic("search")}</button>
-      ${showSelect?`<button type="button" class="ibtn" data-act="enter-select" aria-label="选择">${ic("checks")}</button>`:""}
-      <button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button></div>`;
-  }
-  nav.innerHTML=navHTML;
-
-  body.className="scroll"+(S.search?" searching":"");
-
-  if(S.search){
-    const list=filteredItems();
-    body.innerHTML=!list.length?`<div class="empty-note">没有匹配的项目</div>`:`<div class="grid ${S.showNames?"names":""}">${list.map(it=>tileHTML(it,false)).join("")}</div>`;
-  } else if(S.tab==="photos"){
-    let html="";
-    if(!S.select){
-      html+=`<div class="sec"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
-      html+=`<div class="folders">${FOLDERS.map(f=>`<button type="button" class="fcard" data-folder="${f.id}">${folderCover(f)}<div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`).join("")}</div>`;
-      html+=`<div class="sec"><h3>最近</h3></div>`;
-    }
-    const list=filteredItems();
-    if(!list.length) html+=`<div class="empty-note">没有匹配的项目</div>`;
-    else html+=`<div class="grid ${S.showNames?"names":""}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`;
-    body.innerHTML=html;
-  } else if(S.tab==="folders"){
-    body.innerHTML=`<div class="fgrid" style="padding-top:8px">${FOLDERS.map(f=>`<button type="button" class="fcard" data-folder="${f.id}">${folderCover(f)}<div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`).join("")}</div>`;
-  } else if(S.tab==="trash"){
-    if(!TRASH.length) body.innerHTML=`<div class="empty-note">回收站为空</div>`;
-    else body.innerHTML=`<div class="page"><div class="group">${TRASH.map(t=>{
-      const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
-      return `<div class="row trow" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div><div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div></div>`;
-    }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
-  } else if(S.tab==="settings"&&S.sub==="pin"){
-    body.innerHTML=`
-      <div class="page subpage">
-        <div class="gh">解锁码</div>
-        <div class="group">
-          <label class="row frow"><span class="lab">当前解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="12345" placeholder="请输入"></label>
-          <label class="row frow"><span class="lab">新解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="246810" placeholder="4–12 位数字"></label>
-          <label class="row frow err"><span class="lab">确认新解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="246801" placeholder="再次输入"></label>
-        </div>
-        <div class="ferr">两次输入不一致</div>
-        <p class="gf">解锁码为 4–12 位数字。在首页贷款金额中输入并点击计算即可进入。</p>
-        <button type="button" class="cta" data-act="noop">保存</button>
-      </div>`;
-  } else if(S.tab==="settings"&&S.sub==="wipe"){
-    body.innerHTML=`
-      <div class="page subpage">
-        <div class="gh">状态</div>
-        <div class="group">
-          <div class="row"><span>当前状态</span><span class="v">未配置</span></div>
-        </div>
-        <div class="infocard">配置后，在首页输入此码并点击计算，将清除本机所有内容，且无法恢复。须与解锁码不同。</div>
-        <div class="gh">设置清除码</div>
-        <div class="group">
-          <label class="row frow"><span class="lab">清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="4–12 位数字"></label>
-          <label class="row frow"><span class="lab">确认清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="再次输入"></label>
-        </div>
-        <button type="button" class="cta" data-act="noop">保存</button>
-        <button type="button" class="dangerbtn" disabled>关闭紧急清除</button>
-      </div>`;
-  } else if(S.tab==="settings"){
-    body.innerHTML=`
-      <div class="page">
-        <div class="gh">外观</div>
-        <div class="group"><div class="row segrow"><div class="seg" id="theme-seg">
-          <button type="button" data-theme-set="night" class="${S.themePref==="night"?"on":""}">黑夜</button>
-          <button type="button" data-theme-set="day" class="${S.themePref==="day"?"on":""}">白天</button>
-          <button type="button" data-theme-set="system" class="${S.themePref==="system"?"on":""}">跟随系统</button>
-        </div></div></div>
-        <p class="gf">主题偏好以明文写入 localStorage 键 <code>calc-theme</code>（night / day / system），计算器页与后台共用。</p>
-        <div class="gh">显示</div>
-        <div class="group">
-          <button type="button" class="row" data-act="toggle-names"><span>显示文件名称</span><span class="toggle ${S.showNames?"on":""}" id="names-tog"></span></button>
-        </div>
-        <div class="gh">安全</div>
-        <div class="group">
-          <button type="button" class="row" data-act="open-pin"><span>解锁码</span><span class="v">修改${ic("chev")}</span></button>
-          <button type="button" class="row" data-act="open-wipe"><span>紧急清除码</span><span class="v">未配置${ic("chev")}</span></button>
-        </div>
-        <div class="gh">关于</div>
-        <div class="group">
-          <button type="button" class="row" data-act="noop"><span>版本</span><span class="v">原型 0.1</span></button>
-        </div>
-      </div>`;
+    const titles={photos:["首页", `${aliveItems().length} 项`], folders:["文件夹", `${FOLDERS.length} 个`], trash:["回收站", `${TRASH.length} 项`], settings:["设置", ""], folder:[f?f.n:"文件夹", `${folderItems().length} 项`]};
+    const [title,count]=titles[ctx];
+    const selectable=ctx!=="settings";
+    const open=S.searchAnim?!S.search:S.search;
+    nav.innerHTML=`<div class="nav-row${S.folder?" sub icons":""}">
+      ${S.folder?`<button type="button" class="back" data-act="back-folder" aria-label="返回">${ic("chevl")}</button>`:""}
+      <div class="nav-title"><b>${esc(title)}</b>${count?`<small>${count}</small>`:""}</div>
+      <button type="button" class="ibtn${S.search?" on":""}" data-act="toggle-search" aria-label="搜索" aria-pressed="${S.search}">${ic("search")}</button>
+      ${selectable?`<button type="button" class="ibtn${S.select?" on":""}" data-act="toggle-select" aria-label="多选" aria-pressed="${S.select}">${ic("checks")}</button>`:""}
+      ${S.folder?`<button type="button" class="ibtn" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button>`:`<button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button>`}
+    </div>
+    <div class="sbox${open?" open":""}" id="sbox"><div><div class="search-wrap">
+      <div class="field">${ic("search")}<input id="q" type="search" placeholder="${ctx==="folders"?"搜索文件夹":ctx==="settings"?"搜索设置":"搜索"}" value="${esc(S.q)}" enterkeyhint="search" autocomplete="off"><button type="button" class="clr" data-act="clear-q" ${S.q?"":"hidden"}><span>${ic("x")}</span></button></div>
+      ${segFor(ctx)}
+    </div></div></div>`;
   }
 
-  /* tab bar */
-  if(S.select){
-    const n=S.sel.size;
-    const one=n===1;
-    bar.className="tabbar actionbar";
-    bar.innerHTML=`
-      <button type="button" class="tab" data-act="share" ${n?"":"disabled"}>${ic("share")}<span>分享</span></button>
-      <button type="button" class="tab" data-act="move" ${n?"":"disabled"}>${ic("move")}<span>移动</span></button>
-      <button type="button" class="tab" data-act="rename" ${one?"":"disabled"}>${ic("pen")}<span>重命名</span></button>
-      <button type="button" class="tab danger" data-act="delete" ${n?"":"disabled"}>${ic("trash")}<span>删除</span></button>`;
-  } else {
+  /* ---- 内容 ---- */
+  body.className="scroll"+(S.folder?" notab":"");
+  body.innerHTML=buildBody(ctx);
+
+  /* ---- 原地多选的选择条 ---- */
+  if(S.select&&ctx!=="settings"){
+    const n=S.sel.size, dis=n?"":"disabled";
+    const b=(act,icon,label,danger)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${dis}>${ic(icon)}${label}</button>`;
+    const acts= ctx==="trash" ? b("sel-restore","restore","恢复")+b("sel-purge","trash","删除",1)
+              : ctx==="folders" ? b("sel-export","share","导出")+b("sel-del","trash","删除",1)
+              : b("sel-move","move","移动")+b("sel-export","share","导出")+b("sel-del","trash","删除",1);
+    sb.innerHTML=`<span class="sc">已选 <b>${n}</b> 项</span><div class="sacts">${acts}</div>`;
+    sb.className="selbar"+(S.folder?" last":"");
+    sb.hidden=false; root.classList.add("selmode");
+  }
+
+  /* ---- Tab 栏（始终保留） ---- */
+  if(!S.folder){
     bar.className="tabbar";
     const trashCount=TRASH.length;
     bar.innerHTML=`
@@ -813,10 +761,131 @@ function render(){
   }
 
   bindAlbum();
-  if(S.search){
-    const q=document.getElementById("q");
-    if(q){ q.focus(); q.setSelectionRange(q.value.length,q.value.length); }
+}
+
+function settingsBody(){
+  if(S.sub==="pin"){
+    return `
+      <div class="page subpage">
+        <div class="gh">解锁码</div>
+        <div class="group">
+          <label class="row frow"><span class="lab">当前解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="12345" placeholder="请输入"></label>
+          <label class="row frow"><span class="lab">新解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="246810" placeholder="4–12 位数字"></label>
+          <label class="row frow err"><span class="lab">确认新解锁码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="246801" placeholder="再次输入"></label>
+        </div>
+        <div class="ferr">两次输入不一致</div>
+        <p class="gf">解锁码为 4–12 位数字。在首页贷款金额中输入并点击计算即可进入。</p>
+        <button type="button" class="cta" data-act="noop">保存</button>
+      </div>`;
+  } else if(S.sub==="wipe"){
+    return `
+      <div class="page subpage">
+        <div class="gh">状态</div>
+        <div class="group">
+          <div class="row"><span>当前状态</span><span class="v">未配置</span></div>
+        </div>
+        <div class="infocard">配置后，在首页输入此码并点击计算，将清除本机所有内容，且无法恢复。须与解锁码不同。</div>
+        <div class="gh">设置清除码</div>
+        <div class="group">
+          <label class="row frow"><span class="lab">清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="4–12 位数字"></label>
+          <label class="row frow"><span class="lab">确认清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="再次输入"></label>
+        </div>
+        <button type="button" class="cta" data-act="noop">保存</button>
+        <button type="button" class="dangerbtn" disabled>关闭紧急清除</button>
+      </div>`;
+  } else {
+    return `
+      <div class="page">
+        <div class="gh">外观</div>
+        <div class="group"><div class="row segrow"><div class="seg" id="theme-seg">
+          <button type="button" data-theme-set="night" class="${S.themePref==="night"?"on":""}">黑夜</button>
+          <button type="button" data-theme-set="day" class="${S.themePref==="day"?"on":""}">白天</button>
+          <button type="button" data-theme-set="system" class="${S.themePref==="system"?"on":""}">跟随系统</button>
+        </div></div></div>
+        <p class="gf">主题偏好以明文写入 localStorage 键 <code>calc-theme</code>（night / day / system），计算器页与后台共用。</p>
+        <div class="gh">显示</div>
+        <div class="group">
+          <button type="button" class="row" data-act="toggle-names"><span>显示文件名称</span><span class="toggle ${S.showNames?"on":""}" id="names-tog"></span></button>
+        </div>
+        <div class="gh">安全</div>
+        <div class="group">
+          <button type="button" class="row" data-act="open-pin"><span>解锁码</span><span class="v">修改${ic("chev")}</span></button>
+          <button type="button" class="row" data-act="open-wipe"><span>紧急清除码</span><span class="v">未配置${ic("chev")}</span></button>
+        </div>
+        <div class="gh">关于</div>
+        <div class="group">
+          <button type="button" class="row" data-act="noop"><span>版本</span><span class="v">原型 0.1</span></button>
+        </div>
+      </div>`;
   }
+
+}
+
+function resetModes(){ S.search=false; S.searchAnim=false; S.q=""; S.filter="all"; S.select=false; S.sel=new Set(); }
+function toggleSel(id){ if(S.sel.has(id)) S.sel.delete(id); else S.sel.add(id); render(); }
+function refreshBody(){
+  /* 只刷新内容区与筛选高亮，保留输入框焦点与展开状态 */
+  document.getElementById("a-body").innerHTML=buildBody(curCtx());
+  document.querySelectorAll("#sbox [data-filter]").forEach(b=>b.classList.toggle("on",b.dataset.filter===S.filter));
+  document.querySelectorAll("#sbox [data-sort]").forEach(b=>b.classList.toggle("on",b.dataset.sort===S.sort));
+}
+function curCtx(){ return S.folder?"folder":S.tab; }
+function folderItems(){
+  const f=FOLDERS.find(x=>x.id===S.folder);
+  const seeds=f&&f.s.length?f.s:[11,5,8];
+  return [0,1,2,3,4,5,6,7,8].map(i=>({id:"fd"+i,seed:seeds[i%seeds.length]+i*3,kind:kinds[i%3],name:(f?f.n:"")+" · "+(i+1),video:i===4||i===7,dur:durs[i%6],doc:false}));
+}
+const matchQ=name=>!S.q.trim()||name.toLowerCase().includes(S.q.trim().toLowerCase());
+const matchF=it=>S.filter==="all"||(S.filter==="photo"&&!it.doc&&!it.video)||(S.filter==="video"&&it.video)||(S.filter==="doc"&&it.doc);
+function segFor(ctx){
+  const segBtn=(attr,key,label,cur)=>`<button type="button" data-${attr}="${key}" class="${cur===key?"on":""}">${label}</button>`;
+  if(ctx==="settings") return "";
+  if(ctx==="folders") return `<div class="seg">${segBtn("sort","recent","最近更新",S.sort)}${segBtn("sort","name","名称",S.sort)}${segBtn("sort","count","数量",S.sort)}</div>`;
+  const opts=[["all","全部"],["photo","图片"],["video","视频"]];
+  if(ctx!=="folder") opts.push(["doc","文档"]);
+  return `<div class="seg" id="filter-seg">${opts.map(([k,l])=>segBtn("filter",k,l,S.filter)).join("")}</div>`;
+}
+function fcardHTML(f, selecting){
+  const sel=selecting&&S.sel.has(f.id);
+  const mark=selecting?`<span class="mark">${sel?ic("tick"):""}</span>`:"";
+  return `<button type="button" class="fcard${sel?" sel":""}" data-folder="${f.id}"><div class="fwrap">${folderCover(f)}${mark}</div><div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`;
+}
+function buildBody(ctx){
+  const names=S.showNames?"names":"";
+  const empty=`<div class="empty-note">没有匹配的项目</div>`;
+  if(ctx==="photos"){
+    let html="";
+    if(!(S.search&&(S.q.trim()||S.filter!=="all"))){
+      html+=`<div class="sec"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
+      html+=`<div class="folders">${FOLDERS.map(f=>fcardHTML(f,false)).join("")}</div>`;
+      html+=`<div class="sec"><h3>最近</h3></div>`;
+    }
+    const list=filteredItems();
+    return html+(list.length?`<div class="grid ${names}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`:empty);
+  }
+  if(ctx==="folder"){
+    const list=folderItems().filter(it=>matchQ(it.name)&&matchF(it));
+    return list.length?`<div class="grid ${names}" style="padding-top:2px">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`:empty;
+  }
+  if(ctx==="folders"){
+    let list=FOLDERS.filter(f=>matchQ(f.n));
+    if(S.sort==="name") list=[...list].sort((a,b)=>a.n.localeCompare(b.n,"zh"));
+    if(S.sort==="count") list=[...list].sort((a,b)=>b.c-a.c);
+    return list.length?`<div class="fgrid" style="padding-top:8px">${list.map(f=>fcardHTML(f,S.select)).join("")}</div>`:empty;
+  }
+  if(ctx==="trash"){
+    if(!TRASH.length) return `<div class="empty-note">回收站为空</div>`;
+    const list=TRASH.filter(t=>matchQ(t.name)&&matchF(t));
+    if(!list.length) return empty;
+    return `<div class="page"><div class="group">${list.map(t=>{
+      const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
+      const sel=S.select&&S.sel.has(t.id);
+      const lead=S.select?`<span class="rsel">${sel?ic("tick"):""}</span>`:"";
+      const acts=S.select?"":`<div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div>`;
+      return `<div class="row trow${sel?" sel":""}" data-tid="${t.id}">${lead}${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div>${acts}</div>`;
+    }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
+  }
+  return settingsBody();
 }
 
 
@@ -926,12 +995,17 @@ function closePlusMenu(after){
 function bindAlbum(){
   const root=document.getElementById("v-album");
   root.onclick=function(e){
-    const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-folder],[data-id],[data-restore],[data-purge]");
+    const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-sort],[data-folder],[data-id],[data-tid],[data-restore],[data-purge]");
     if(!t) return;
     if(t.dataset.themeSet!==undefined){ applyTheme(t.dataset.themeSet); render(); return; }
-    if(t.dataset.tab){ S.tab=t.dataset.tab; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; S.sub=null; render(); return; }
-    if(t.dataset.filter){ S.filter=t.dataset.filter; render(); return; }
-    if(t.dataset.folder){ S.folder=t.dataset.folder; S.plus=false; render(); return; }
+    if(t.dataset.tab){ S.tab=t.dataset.tab; S.plus=false; S.folder=null; S.sub=null; resetModes(); render(); return; }
+    if(t.dataset.filter){ S.filter=t.dataset.filter; refreshBody(); return; }
+    if(t.dataset.sort){ S.sort=t.dataset.sort; refreshBody(); return; }
+    if(t.dataset.folder){
+      if(S.select&&curCtx()==="folders"){ toggleSel(t.dataset.folder); return; }
+      S.folder=t.dataset.folder; S.plus=false; resetModes(); render(); return;
+    }
+    if(t.dataset.tid){ if(S.select) toggleSel(t.dataset.tid); return; }
     if(t.dataset.restore){
       const id=t.dataset.restore;
       const item=TRASH.find(x=>x.id===id);
@@ -947,10 +1021,7 @@ function bindAlbum(){
     }
     if(t.dataset.id){
       const id=t.dataset.id;
-      if(S.select){
-        if(S.sel.has(id)) S.sel.delete(id); else S.sel.add(id);
-        render();
-      } else {
+      if(S.select){ toggleSel(id); } else {
         const it=ITEMS.find(x=>x.id===id);
         if(it&&it.doc) openDoc(id,"view"); else openViewer(id);
       }
@@ -975,17 +1046,32 @@ function bindAlbum(){
       }});
       return;
     }
-    if(act==="back-folder"){ S.folder=null; render(); return; }
-    if(act==="open-search"){ S.search=true; S.q=""; S.filter="all"; S.plus=false; render(); return; }
-    if(act==="close-search"){ S.search=false; S.q=""; S.filter="all"; render(); return; }
-    if(act==="clear-q"){ S.q=""; render(); return; }
-    if(act==="enter-select"){ S.select=true; S.sel=new Set(); S.plus=false; render(); return; }
-    if(act==="cancel-select"){ S.select=false; S.sel=new Set(); render(); return; }
-    if(act==="toggle-all"){
-      const list=filteredItems();
-      if(S.sel.size===list.length) S.sel=new Set();
-      else S.sel=new Set(list.map(x=>x.id));
-      render(); return;
+    if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
+    if(act==="toggle-search"){
+      S.search=!S.search; S.plus=false;
+      if(!S.search){ S.q=""; S.filter="all"; }
+      S.searchAnim=true; render();
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        S.searchAnim=false;
+        const box=document.getElementById("sbox"); if(box) box.classList.toggle("open",S.search);
+        if(S.search){ const q=document.getElementById("q"); q&&q.focus({preventScroll:true}); }
+      }));
+      return;
+    }
+    if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } refreshBody(); return; }
+    if(act==="toggle-select"){ S.select=!S.select; S.sel=new Set(); S.plus=false; render(); return; }
+    if(act==="sel-move"||act==="sel-export"){ toast("演示：功能占位"); return; }
+    if(act==="sel-del"){
+      if(curCtx()==="photos"){ deleteSelected(); return; }
+      const n=S.sel.size;
+      dialog({title:`删除 ${n} 项？`, text:"将移入回收站", ok:"删除", danger:true, onOk:()=>{ S.sel=new Set(); render(); toast("已删除"); }});
+      return;
+    }
+    if(act==="sel-restore"){ TRASH=TRASH.filter(x=>!S.sel.has(x.id)); S.sel=new Set(); render(); toast("已恢复"); return; }
+    if(act==="sel-purge"){
+      const n=S.sel.size;
+      dialog({title:`永久删除 ${n} 项？`, text:"删除后无法恢复", ok:"删除", danger:true, onOk:()=>{ TRASH=TRASH.filter(x=>!S.sel.has(x.id)); S.sel=new Set(); render(); toast("已删除"); }});
+      return;
     }
     if(act==="plus"){ if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
     if(act==="close-plus"){ closePlusMenu(); return; }
@@ -999,13 +1085,11 @@ function bindAlbum(){
     if(act==="goto-folders"){ S.tab="folders"; render(); return; }
     if(act==="toggle-names"){ S.showNames=!S.showNames; render(); return; }
     if(act==="share"||act==="move"){ toast("演示：功能占位"); return; }
-    if(act==="rename"){ if(S.sel.size===1) renameSelected([...S.sel][0]); return; }
-    if(act==="delete"){ deleteSelected(); return; }
     if(act==="noop"){ toast("演示：功能占位"); return; }
   };
   const q=document.getElementById("q");
   if(q){
-    q.oninput=function(){ S.q=q.value; render(); };
+    q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.hidden=!S.q; refreshBody(); };
   }
 }
 
@@ -1037,7 +1121,7 @@ function deleteSelected(){
     it.trash=true;
     TRASH.unshift({id:"tr_"+id, name:it.name+(it.doc?".txt":it.video?".mp4":".jpg"), days:30, seed:it.seed||1, kind:it.kind||"land", doc:!!it.doc, video:!!it.video});
   });
-  S.select=false; S.sel=new Set();
+  S.sel=new Set();
   toast("已移入回收站");
   render();
 }
