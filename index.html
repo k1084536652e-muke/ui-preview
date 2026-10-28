@@ -15,8 +15,9 @@
 <link rel="stylesheet" href="vendor/plyr/plyr.css">
 <script src="vendor/plyr/plyr.min.js"></script>
 <script>
-/* 尽早应用主题，避免闪烁。明文键 calc-theme：night / day / system */
-(function(){try{var p=localStorage.getItem("calc-theme")||"night";var t=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"night":"day"):p;document.documentElement.setAttribute("data-theme",t==="day"?"day":"night");}catch(e){}})();
+/* 尽早应用主题，避免闪烁。打开时总是计算器页 → 用明文键 calc-theme（night / day / system）。
+   相册主题为独立键 album-theme；旧版只有 calc-theme 时迁移为两者相同。 */
+(function(){try{var c=localStorage.getItem("calc-theme");if(c&&!localStorage.getItem("album-theme"))localStorage.setItem("album-theme",c);var p=c||"night";var t=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"night":"day"):p;document.documentElement.setAttribute("data-theme",t==="day"?"day":"night");}catch(e){}})();
 </script>
 <style>
 :root{
@@ -409,6 +410,9 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .vseek{position:absolute;top:50%;z-index:5;transform:translateY(-50%) scale(.9);padding:10px 16px;border-radius:20px;background:rgba(0,0,0,.5);color:#fff;font-size:15px;font-weight:650;opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
 .vseek.l{left:12%}.vseek.r{right:12%}
 .vseek.show{opacity:1;transform:translateY(-50%) scale(1)}
+.row.segrow.labeled{flex-direction:column;align-items:stretch;gap:8px;padding:11px 8px 8px}
+.row.segrow.labeled>span{padding-left:8px;font-size:16px;white-space:nowrap}
+.row.segrow.labeled .seg{flex:none;width:100%;height:34px}
 /* 统一 Toast：底部居中、Tab 栏上方，约 2s 后淡出 */
 .toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 14px);transform:translate(-50%,6px);background:var(--text);color:var(--bg);font-size:14px;font-weight:550;padding:8px 16px;border-radius:17px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -644,21 +648,29 @@ const S={
   doc:null,
   retention:"30",
   searchAnim:false, sort:"recent", /* 文档页：{id,title,isNew,mode:"view"|"edit",sheet:bool} */ /* 设置子页：null / "pin" / "wipe" */
-  themePref:(function(){try{return localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
+  calcPref:(function(){try{return localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
+  albumPref:(function(){try{return localStorage.getItem("album-theme")||localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
   repayment:"equal-payment",
   calcMode:"mortgage",
 };
 
-function applyTheme(pref){
-  S.themePref=pref||"night";
-  try{localStorage.setItem("calc-theme",S.themePref)}catch(e){}
-  let t=S.themePref;
-  if(t==="system") t=matchMedia("(prefers-color-scheme: dark)").matches?"night":"day";
-  document.documentElement.setAttribute("data-theme", t==="day"?"day":"night");
+/* 两套独立外观：计算器（calc-theme，解锁前读取）与相册（album-theme，解锁后）。 */
+function resolveTheme(pref){ return pref==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"night":"day"):(pref==="day"?"day":"night"); }
+function applyCurrentTheme(){
+  const t=resolveTheme(S.view==="album"?S.albumPref:S.calcPref);
+  document.documentElement.setAttribute("data-theme", t);
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta) meta.content = t==="day"?"#ffffff":"#000000";
 }
-try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if(S.themePref==="system") applyTheme("system")})}catch(e){}
+function setThemePref(kind, pref){
+  pref=pref||"night";
+  if(kind==="calc"){ S.calcPref=pref; try{localStorage.setItem("calc-theme",pref)}catch(e){} }
+  else { S.albumPref=pref; try{localStorage.setItem("album-theme",pref)}catch(e){} }
+  applyCurrentTheme();
+}
+/* 旧接口：同时设置两者（仅供调试 / 截图脚本） */
+function applyTheme(pref){ setThemePref("calc",pref); setThemePref("album",pref); }
+try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",applyCurrentTheme)}catch(e){}
 
 function toast(msg){
   const layer=document.getElementById("layer");
@@ -684,6 +696,7 @@ function lock(){
   showView();
 }
 function showView(){
+  applyCurrentTheme(); /* 同一帧内先切主题再切视图，避免闪烁 */
   document.getElementById("v-calc").hidden = S.view!=="calc";
   document.getElementById("v-album").hidden = S.view!=="album";
   document.getElementById("layer").innerHTML="";
@@ -870,12 +883,12 @@ function settingsBody(){
     return `
       <div class="page">
         <div class="gh">外观</div>
-        <div class="group"><div class="row segrow"><div class="seg" id="theme-seg">
-          <button type="button" data-theme-set="night" class="${S.themePref==="night"?"on":""}">黑夜</button>
-          <button type="button" data-theme-set="day" class="${S.themePref==="day"?"on":""}">白天</button>
-          <button type="button" data-theme-set="system" class="${S.themePref==="system"?"on":""}">跟随系统</button>
-        </div></div></div>
-        <p class="gf">主题偏好以明文写入 localStorage 键 <code>calc-theme</code>（night / day / system），计算器页与后台共用。</p>
+        <div class="group">${[["calc","计算器外观",S.calcPref],["album","相册外观",S.albumPref]].map(([k,l,cur])=>`<div class="row segrow labeled"><span>${l}</span><div class="seg">
+          <button type="button" data-theme-set="system" data-kind="${k}" class="${cur==="system"?"on":""}">跟随系统</button>
+          <button type="button" data-theme-set="day" data-kind="${k}" class="${cur==="day"?"on":""}">白天</button>
+          <button type="button" data-theme-set="night" data-kind="${k}" class="${cur==="night"?"on":""}">黑夜</button>
+        </div></div>`).join("")}</div>
+        <p class="gf">计算器外观只能在这里修改，建议设为固定，避免外观无故变化</p>
         <div class="gh">显示</div>
         <div class="group">
           <button type="button" class="row" data-act="toggle-names"><span>显示文件名称</span><span class="toggle ${S.showNames?"on":""}" id="names-tog"></span></button>
@@ -1151,7 +1164,7 @@ function bindAlbum(){
     if(rt){ S.retention=rt.dataset.ret; render(); return; }
     const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-sort],[data-folder],[data-id],[data-tid],[data-restore],[data-purge]");
     if(!t) return;
-    if(t.dataset.themeSet!==undefined){ applyTheme(t.dataset.themeSet); render(); return; }
+    if(t.dataset.themeSet!==undefined){ setThemePref(t.dataset.kind||"album", t.dataset.themeSet); render(); return; }
     if(t.dataset.tab){ S.tab=t.dataset.tab; S.plus=false; S.folder=null; S.sub=null; resetModes(); render(); return; }
     if(t.dataset.filter){ S.filter=t.dataset.filter; refreshBody(); return; }
     if(t.dataset.sort){ S.sort=t.dataset.sort; refreshBody(); return; }
@@ -1500,7 +1513,7 @@ function wireCalc(){
   };
 }
 
-applyTheme(S.themePref);
+applyCurrentTheme();
 wireCalc();
 showView();
 
