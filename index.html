@@ -137,15 +137,33 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .actionbar .tab.danger{color:var(--danger)}
 .badge{position:absolute;top:3px;left:50%;margin-left:7px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
 .fab{width:46px;height:46px;border-radius:23px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;margin-top:-1px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
-.fab svg.i{width:26px;height:26px;stroke-width:2.2;transition:transform .18s}
+.fab svg.i{width:26px;height:26px;stroke-width:2.2;transition:transform .2s ease}
 .fab.open svg.i{transform:rotate(45deg)}
 [data-theme=day] .fab{background:#fff;color:#000;border:2px solid #000;box-shadow:0 3px 10px rgba(0,0,0,.12)}
-.scrim{position:absolute;inset:0;background:var(--scrim);z-index:15}
 #a-overlay{position:absolute;inset:0;pointer-events:none;z-index:15}
-#a-overlay:not(:empty){pointer-events:auto}
-.pop{position:absolute;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 10px);transform:translateX(-50%);width:236px;background:var(--sheet);border-radius:14px;z-index:25;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35)}
-.pop button{width:100%;height:50px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:16px;border-bottom:.5px solid var(--sep);text-align:left}
+#a-overlay.is-open{pointer-events:auto}
+.scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;transition:opacity .2s ease}
+#a-overlay.is-open .scrim{opacity:1}
+#a-overlay.closing .scrim{transition-duration:.15s}
+.pop{position:absolute;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 10px);width:236px;background:var(--sheet);border-radius:14px;z-index:25;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);
+  transform-origin:bottom center;opacity:0;transform:translateX(-50%) translateY(8px) scale(.85);
+  transition:opacity .22s cubic-bezier(.2,.9,.3,1.2),transform .22s cubic-bezier(.2,.9,.3,1.2);pointer-events:none}
+#a-overlay.is-open .pop{opacity:1;transform:translateX(-50%) translateY(0) scale(1);pointer-events:auto}
+#a-overlay.closing .pop{transition-duration:.15s;transition-timing-function:ease}
+.pop button{width:100%;height:50px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:16px;border-bottom:.5px solid var(--sep);text-align:left;
+  opacity:0;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease}
 .pop button:last-child{border:0}
+#a-overlay.is-open .pop button{opacity:1;transform:translateY(0)}
+#a-overlay.is-open .pop button:nth-child(1){transition-delay:30ms}
+#a-overlay.is-open .pop button:nth-child(2){transition-delay:60ms}
+#a-overlay.is-open .pop button:nth-child(3){transition-delay:90ms}
+#a-overlay.closing .pop button{transition-duration:.12s;transition-delay:0ms!important}
+.tacts{display:flex;align-items:center;gap:0;flex:0 0 auto;margin-left:auto}
+.tacts .txtbtn{padding:0 6px;font-size:14px;height:36px}
+.txtbtn.danger{color:var(--danger);font-weight:550}
+@media (prefers-reduced-motion:reduce){
+  .fab svg.i,.scrim,.pop,.pop button{transition:none!important}
+}
 .page{padding:8px 16px 0;max-width:720px;margin:0 auto}
 .gh{font-size:13px;color:var(--muted);padding:18px 16px 7px;letter-spacing:.2px}
 .group{background:var(--group);border-radius:12px;overflow:hidden}
@@ -579,7 +597,7 @@ function render(){
     if(!TRASH.length) body.innerHTML=`<div class="empty-note">回收站为空</div>`;
     else body.innerHTML=`<div class="page"><div class="group">${TRASH.map(t=>{
       const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
-      return `<div class="row trow" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button></div>`;
+      return `<div class="row trow" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div><div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div></div>`;
     }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
   } else if(S.tab==="settings"){
     body.innerHTML=`
@@ -623,18 +641,37 @@ function render(){
     bar.innerHTML=`
       <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos">${ic("house")}<span>首页</span></button>
       <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders">${ic("folder")}<span>文件夹</span></button>
-      <button type="button" class="tab" data-act="plus" aria-label="添加"><span class="fab ${S.plus?"open":""}">${ic("plus")}</span></button>
+      <button type="button" class="tab" data-act="plus" aria-label="添加"><span class="fab">${ic("plus")}</span></button>
       <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash">${ic("trash")}<span>回收站</span>${trashCount?`<span class="badge">${trashCount}</span>`:""}</button>
       <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings">${ic("gear")}<span>设置</span></button>`;
   }
 
     if(S.plus){
-    overlay.innerHTML=`<div class="scrim" data-act="close-plus"></div>
-      <div class="pop">
-        <button type="button" data-act="add-photo">${ic("imgplus")}添加照片</button>
-        <button type="button" data-act="add-doc">${ic("fileplus")}新建文档</button>
-        <button type="button" data-act="add-folder">${ic("folderplus")}新建文件夹</button>
-      </div>`;
+    if(!overlay.dataset.plusBuilt){
+      overlay.innerHTML=`<div class="scrim" data-act="close-plus"></div>
+        <div class="pop">
+          <button type="button" data-act="add-photo">${ic("imgplus")}添加照片</button>
+          <button type="button" data-act="add-doc">${ic("fileplus")}新建文档</button>
+          <button type="button" data-act="add-folder">${ic("folderplus")}新建文件夹</button>
+        </div>`;
+      overlay.dataset.plusBuilt="1";
+      overlay.classList.remove("is-open","closing");
+      const fab=bar.querySelector(".fab");
+      if(fab) fab.classList.remove("open");
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(!S.plus) return;
+        overlay.classList.add("is-open");
+        fab&&fab.classList.add("open");
+      }));
+    } else {
+      overlay.classList.add("is-open");
+      const fab=bar.querySelector(".fab");
+      fab&&fab.classList.add("open");
+    }
+  } else {
+    overlay.innerHTML="";
+    delete overlay.dataset.plusBuilt;
+    overlay.classList.remove("is-open","closing");
   }
 
   bindAlbum();
@@ -645,10 +682,31 @@ function render(){
 }
 
 
+
+function closePlusMenu(after){
+  const overlay=document.getElementById("a-overlay");
+  const fab=document.querySelector("#a-bar .fab");
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  S.plus=false;
+  if(!overlay||!overlay.dataset.plusBuilt){ overlay&&(overlay.innerHTML=""); after&&after(); render(); return; }
+  overlay.classList.add("closing");
+  overlay.classList.remove("is-open");
+  fab&&fab.classList.remove("open");
+  const done=()=>{
+    overlay.innerHTML="";
+    delete overlay.dataset.plusBuilt;
+    overlay.classList.remove("closing","is-open");
+    after&&after();
+    render();
+  };
+  if(reduce) done();
+  else setTimeout(done, 160);
+}
+
 function bindAlbum(){
   const root=document.getElementById("v-album");
   root.onclick=function(e){
-    const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-folder],[data-id],[data-restore]");
+    const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-folder],[data-id],[data-restore],[data-purge]");
     if(!t) return;
     if(t.dataset.themeSet!==undefined){ applyTheme(t.dataset.themeSet); render(); return; }
     if(t.dataset.tab){ S.tab=t.dataset.tab; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; render(); return; }
@@ -658,6 +716,13 @@ function bindAlbum(){
       const id=t.dataset.restore;
       const item=TRASH.find(x=>x.id===id);
       if(item){ TRASH=TRASH.filter(x=>x.id!==id); toast("已恢复"); render(); }
+      return;
+    }
+    if(t.dataset.purge){
+      const id=t.dataset.purge;
+      TRASH=TRASH.filter(x=>x.id!==id);
+      toast("已删除");
+      render();
       return;
     }
     if(t.dataset.id){
@@ -686,9 +751,9 @@ function bindAlbum(){
       else S.sel=new Set(list.map(x=>x.id));
       render(); return;
     }
-    if(act==="plus"){ S.plus=!S.plus; render(); return; }
-    if(act==="close-plus"){ S.plus=false; render(); return; }
-    if(act==="add-photo"||act==="add-doc"||act==="add-folder"){ S.plus=false; toast("演示：已记录操作"); render(); return; }
+    if(act==="plus"){ if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
+    if(act==="close-plus"){ closePlusMenu(); return; }
+    if(act==="add-photo"||act==="add-doc"||act==="add-folder"){ closePlusMenu(()=>{ toast("演示：已记录操作"); }); return; }
     if(act==="goto-folders"){ S.tab="folders"; render(); return; }
     if(act==="toggle-names"){ S.showNames=!S.showNames; render(); return; }
     if(act==="share"||act==="move"){ toast("演示：功能占位"); return; }
