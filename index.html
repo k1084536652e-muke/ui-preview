@@ -140,10 +140,13 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .actionbar .tab{color:var(--icon)}
 .actionbar .tab.danger{color:var(--danger)}
 .badge{position:absolute;top:3px;left:50%;margin-left:7px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
-.fab{width:46px;height:46px;border-radius:23px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;margin-top:-1px;box-shadow:0 4px 14px rgba(0,0,0,.28)}
-.fab svg.i{width:26px;height:26px;stroke-width:2.2;transition:transform .2s ease}
+/* 「＋」：38px（原 46px），颜色逻辑同其它 Tab：平时灰色，菜单打开/按下时为文字色 */
+.fab{width:38px;height:38px;border-radius:19px;background:var(--muted);color:var(--bg);display:grid;place-items:center;margin-top:1px;transition:background .2s ease,color .2s ease,border-color .2s ease}
+.fab svg.i{width:22px;height:22px;stroke-width:2.2;transition:transform .2s ease}
 .fab.open svg.i{transform:rotate(45deg)}
-[data-theme=day] .fab{background:#fff;color:#000;border:2px solid #000;box-shadow:0 3px 10px rgba(0,0,0,.12)}
+.fab.open,.tab:active .fab{background:var(--text)}
+[data-theme=day] .fab{background:#fff;color:var(--muted);border:2px solid currentColor}
+[data-theme=day] .fab.open,[data-theme=day] .tab:active .fab{background:#fff;color:#000}
 #a-overlay{position:absolute;inset:0;pointer-events:none;z-index:15}
 #a-overlay.is-open{pointer-events:auto}
 .scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;transition:opacity .2s ease}
@@ -233,8 +236,13 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .viewer .vbar b{font-size:15px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .viewer .vbtn{height:36px;padding:0 12px;border-radius:18px;background:rgba(40,40,42,.7);color:#fff;font-size:14px;display:flex;align-items:center;gap:2px;flex:0 0 auto}
 .viewer .vbtn svg.i{width:20px;height:20px}
-.dlg-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px}
-.dlg{width:min(300px,100%);background:var(--sheet);border-radius:16px;overflow:hidden;text-align:center}
+/* 统一对话框：标题 + 可选灰字说明 + 可选输入框 + 行内错误 + 两个按钮（右侧为主操作，危险操作为红色） */
+.dlg-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .18s ease}
+.dlg{width:min(300px,100%);background:var(--sheet);border-radius:16px;overflow:hidden;text-align:center;transform:scale(1.06);transition:transform .2s cubic-bezier(.2,.9,.3,1)}
+.dlg-back.show{opacity:1}
+.dlg-back.show .dlg{transform:scale(1)}
+.dlg .dbtns button.danger{color:var(--danger)}
+.dlg.noinput .dbtns{margin-top:16px}
 .dlg h4{font-size:17px;font-weight:650;padding:18px 16px 4px}
 .dlg p{font-size:13px;color:var(--muted);padding:0 16px}
 .dlg .din{display:flex;align-items:center;margin:14px 16px 4px;background:var(--field);border-radius:10px;padding:0 10px;height:40px;border:.5px solid var(--sep)}
@@ -320,7 +328,10 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .swatches{display:flex;justify-content:space-between;padding:2px 2px 0}
 .sw{width:30px;height:30px;border-radius:15px;border:.5px solid var(--sep)}
 .sw.on{box-shadow:0 0 0 2px var(--fs-sheet),0 0 0 4px var(--text)}
-.toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 18px);transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:14px;padding:9px 16px;border-radius:18px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+/* 统一 Toast：底部居中、Tab 栏上方，约 2s 后淡出 */
+.toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 14px);transform:translate(-50%,6px);background:var(--text);color:var(--bg);font-size:14px;font-weight:550;padding:8px 16px;border-radius:17px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.toast,.dlg-back,.dlg{transition:none!important}}
 </style>
 </head>
 <body>
@@ -566,9 +577,11 @@ try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if
 function toast(msg){
   const layer=document.getElementById("layer");
   const el=document.createElement("div");
+  layer.querySelectorAll(".toast").forEach(x=>x.remove());
   el.className="toast"; el.textContent=msg;
   layer.appendChild(el);
-  setTimeout(()=>el.remove(),1800);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add("show")));
+  setTimeout(()=>{ el.classList.remove("show"); setTimeout(()=>el.remove(),220); },2000);
 }
 
 function openAlbum(){
@@ -630,7 +643,7 @@ function render(){
 
   if(S.folder){
     const f=FOLDERS.find(x=>x.id===S.folder);
-    nav.innerHTML=`<div class="nav-row three"><button type="button" class="back" data-act="back-folder">${ic("chevl")}返回</button><div class="mid">${esc(f?f.n:"文件夹")}</div><span class="r"></span></div>`;
+    nav.innerHTML=`<div class="nav-row three"><button type="button" class="back" data-act="back-folder">${ic("chevl")}返回</button><div class="mid">${esc(f?f.n:"文件夹")}</div><button type="button" class="ibtn r" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button></div>`;
     body.className="scroll notab";
     const coverSeeds=f&&f.s.length?f.s:[11,5,8];
     const fake=[0,1,2,3,4,5].map((i,idx)=>({id:"fd"+idx,seed:coverSeeds[i%coverSeeds.length]+i*3,kind:kinds[i%3],name:(f?f.n:"")+" · "+(i+1),video:false,doc:false}));
@@ -927,9 +940,9 @@ function bindAlbum(){
     }
     if(t.dataset.purge){
       const id=t.dataset.purge;
-      TRASH=TRASH.filter(x=>x.id!==id);
-      toast("已删除");
-      render();
+      dialog({title:"永久删除？", text:"删除后无法恢复", ok:"删除", danger:true, onOk:()=>{
+        TRASH=TRASH.filter(x=>x.id!==id); render(); toast("已删除");
+      }});
       return;
     }
     if(t.dataset.id){
@@ -954,6 +967,14 @@ function bindAlbum(){
     if(act==="open-pin"){ S.sub="pin"; render(); return; }
     if(act==="open-wipe"){ S.sub="wipe"; render(); return; }
     if(act==="back-sub"){ S.sub=null; render(); return; }
+    if(act==="rename-folder"){
+      const f=FOLDERS.find(x=>x.id===S.folder); if(!f) return;
+      dialog({title:"重命名文件夹", input:{value:f.n}, ok:"确定", onOk:(v)=>{
+        if(!v.trim()) return "名称不能为空";
+        f.n=v.trim(); render(); toast("已重命名");
+      }});
+      return;
+    }
     if(act==="back-folder"){ S.folder=null; render(); return; }
     if(act==="open-search"){ S.search=true; S.q=""; S.filter="all"; S.plus=false; render(); return; }
     if(act==="close-search"){ S.search=false; S.q=""; S.filter="all"; render(); return; }
@@ -968,7 +989,13 @@ function bindAlbum(){
     }
     if(act==="plus"){ if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
     if(act==="close-plus"){ closePlusMenu(); return; }
-    if(act==="add-photo"||act==="add-doc"||act==="add-folder"){ closePlusMenu(()=>{ if(act==="add-doc"){ S.doc={id:null,title:"",isNew:true,mode:"edit",sheet:false}; } else toast("演示：已记录操作"); }); return; }
+    if(act==="add-photo"||act==="add-doc"||act==="add-folder"){ closePlusMenu(()=>{
+      if(act==="add-doc"){ S.doc={id:null,title:"",isNew:true,mode:"edit",sheet:false}; }
+      else if(act==="add-folder"){ setTimeout(()=>dialog({title:"新建文件夹", input:{value:"", placeholder:"文件夹名称"}, ok:"创建", onOk:(v)=>{
+        if(!v.trim()) return "名称不能为空";
+        FOLDERS.push({id:"f"+Date.now(),n:v.trim(),c:0,s:[]}); render(); toast("已创建");
+      }}),0); }
+      else toast("演示：已记录操作"); }); return; }
     if(act==="goto-folders"){ S.tab="folders"; render(); return; }
     if(act==="toggle-names"){ S.showNames=!S.showNames; render(); return; }
     if(act==="share"||act==="move"){ toast("演示：功能占位"); return; }
@@ -993,7 +1020,7 @@ function renameSelected(id){
   if(!it) return;
   const {base,ext}=splitName(it.name);
   prompt2("重命名", base, ext, (val)=>{
-    if(!val.trim()){ toast("名称不能为空"); return false; }
+    if(!val.trim()) return "名称不能为空";
     it.name=val.trim()+ext;
     toast("已重命名");
     S.select=false; S.sel=new Set();
@@ -1015,26 +1042,35 @@ function deleteSelected(){
   render();
 }
 
-function prompt2(title, value, suffix, onOk){
+/* 统一对话框组件。opts: {title, text?, input?:{value, suffix?, placeholder?}, cancel?="取消", ok?="确定", danger?, onOk(value)}
+   onOk 返回字符串 = 行内错误（对话框保持打开）；其它返回值 = 关闭。 */
+function dialog(opts){
   const layer=document.getElementById("layer");
   const wrap=document.createElement("div");
   wrap.className="dlg-back";
-  wrap.innerHTML=`<div class="dlg"><h4>${esc(title)}</h4>
-    <div class="din"><input id="dlg-in" type="text" value="${esc(value)}" autocomplete="off"><span>${esc(suffix)}</span></div>
-    <div class="derr" id="dlg-err"></div>
-    <div class="dbtns"><button type="button" data-x="c">取消</button><button type="button" data-x="o">确定</button></div></div>`;
+  const inp=opts.input;
+  wrap.innerHTML=`<div class="dlg${inp?"":" noinput"}" role="alertdialog" aria-modal="true"><h4>${esc(opts.title)}</h4>
+    ${opts.text?`<p>${esc(opts.text)}</p>`:""}
+    ${inp?`<div class="din"><input id="dlg-in" type="text" value="${esc(inp.value||"")}" placeholder="${esc(inp.placeholder||"")}" autocomplete="off">${inp.suffix?`<span>${esc(inp.suffix)}</span>`:""}</div>
+    <div class="derr" id="dlg-err"></div>`:""}
+    <div class="dbtns"><button type="button" data-x="c">${esc(opts.cancel||"取消")}</button><button type="button" data-x="o" class="${opts.danger?"danger":""}">${esc(opts.ok||"确定")}</button></div></div>`;
   layer.appendChild(wrap);
-  const inp=wrap.querySelector("#dlg-in");
-  inp.focus(); inp.select();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add("show")));
+  const el=wrap.querySelector("#dlg-in");
+  if(el){ el.focus(); el.select(); }
+  const close=()=>{ wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),180); };
   wrap.onclick=(e)=>{
     const b=e.target.closest("[data-x]");
     if(!b) return;
-    if(b.dataset.x==="c"){ wrap.remove(); return; }
-    if(b.dataset.x==="o"){
-      const ok=onOk(inp.value);
-      if(ok!==false) wrap.remove();
-    }
+    if(b.dataset.x==="c"){ close(); return; }
+    const r=opts.onOk?opts.onOk(el?el.value:undefined):undefined;
+    if(typeof r==="string"){ const er=wrap.querySelector("#dlg-err"); if(er) er.textContent=r; else toast(r); return; }
+    close();
   };
+  return wrap;
+}
+function prompt2(title, value, suffix, onOk){
+  return dialog({title, input:{value, suffix}, ok:"确定", onOk});
 }
 
 function openViewer(id){
@@ -1055,7 +1091,7 @@ function openViewer(id){
     if(b.dataset.x==="ren"){
       const {base,ext}=splitName(it.name);
       prompt2("重命名", base, ext||".jpg", (val)=>{
-        if(!val.trim()){ toast("名称不能为空"); return false; }
+        if(!val.trim()) return "名称不能为空";
         it.name=val.trim()+(ext||".jpg");
         v.querySelector("b").textContent=it.name;
         toast("已重命名");
