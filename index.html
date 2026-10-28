@@ -78,7 +78,9 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .field input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:16px;color:var(--text);-webkit-appearance:none;appearance:none}
 .field input::placeholder{color:var(--muted)}
 .field input::-webkit-search-cancel-button{display:none}
-.clr{width:26px;height:26px;display:grid;place-items:center}
+.clr{width:26px;height:26px;display:grid;place-items:center;opacity:0;transform:scale(.7);pointer-events:none;transition:opacity .15s ease,transform .15s ease}
+.clr.show{opacity:1;transform:none;pointer-events:auto}
+mark.hl{background:none;color:var(--danger);font-weight:650}
 .clr span{width:18px;height:18px;border-radius:9px;background:var(--faint);display:grid;place-items:center;color:var(--surface)}
 .clr svg.i{width:12px;height:12px;stroke-width:2.5}
 .seg{height:30px;border-radius:9px;background:var(--seg-bg);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:2px;gap:2px}
@@ -343,8 +345,8 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .selbar .sc{font-size:14px;color:var(--muted);white-space:nowrap}
 .selbar .sc b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
 .sacts{margin-left:auto;display:flex;gap:2px}
-.sbtn{height:36px;padding:0 7px;display:flex;align-items:center;gap:4px;font-size:14px;color:var(--text);border-radius:8px;white-space:nowrap}
-.sbtn svg.i{width:19px;height:19px}
+.sbtn{height:40px;min-width:44px;padding:0 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;font-weight:550;color:var(--text);border-radius:8px;white-space:nowrap}
+.sbtn svg.i{width:20px;height:20px}
 .sbtn.danger{color:var(--danger)}
 .sbtn:disabled{opacity:.35;cursor:default}
 #v-album.selmode ~ #layer .toast{bottom:calc(var(--tab-h) + var(--safe-bottom) + 58px)}
@@ -421,6 +423,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 <!-- ========== 后台（相册） ========== -->
 <section class="view" id="v-album" aria-label="相册" hidden>
   <header class="nav" id="a-nav"></header>
+  <!-- 网格 / 列表内容区。正式应用的分页 / 增量加载（首屏约 20 项、IntersectionObserver 哨兵、缩略图懒解密与缓存）见 DESIGN-NOTES.md「18. Paged / incremental loading」。 -->
   <div class="scroll" id="a-body"></div>
   <div class="selbar" id="a-sel" hidden></div>
   <div id="a-overlay"></div>
@@ -648,6 +651,7 @@ function showView(){
 function aliveItems(){return ITEMS.filter(it=>!it.trash)}
 function filteredItems(){
   let list=aliveItems();
+  if(S.filter==="folder") return [];
   if(S.filter==="photo") list=list.filter(it=>!it.doc&&!it.video);
   else if(S.filter==="video") list=list.filter(it=>it.video);
   else if(S.filter==="doc") list=list.filter(it=>it.doc);
@@ -658,14 +662,23 @@ function filteredItems(){
   return list;
 }
 
+/* 搜索时把匹配字符标红；转义后再包 <mark> */
+function hl(name){
+  const q=S.search?S.q.trim():"";
+  if(!q) return esc(name);
+  const i=name.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0) return esc(name);
+  return esc(name.slice(0,i))+`<mark class="hl">${esc(name.slice(i,i+q.length))}</mark>`+esc(name.slice(i+q.length));
+}
+const showNames=()=>S.showNames||(S.search&&!!S.q.trim());
 function tileHTML(it, selecting){
   const selected=S.sel.has(it.id);
   const mark=selecting?`<span class="mark">${selected?ic("tick"):""}</span>`:"";
   const selc=selecting&&selected?" sel":"";
   if(it.doc){
-    return `<button type="button" class="cell${selc}" data-id="${it.id}"><div class="tile doc"><div class="dt">${esc(it.name)}</div><div class="dl" style="width:92%"></div><div class="dl" style="width:78%"></div><div class="dl" style="width:85%"></div><div class="dl" style="width:50%"></div><span class="dic">${ic("filetext")}</span>${mark}</div>${S.showNames?`<div class="tname">${esc(it.name)}</div>`:""}</button>`;
+    return `<button type="button" class="cell${selc}" data-id="${it.id}"><div class="tile doc"><div class="dt">${hl(it.name)}</div><div class="dl" style="width:92%"></div><div class="dl" style="width:78%"></div><div class="dl" style="width:85%"></div><div class="dl" style="width:50%"></div><span class="dic">${ic("filetext")}</span>${mark}</div>${showNames()?`<div class="tname">${hl(it.name)}</div>`:""}</button>`;
   }
-  return `<button type="button" class="cell${selc}" data-id="${it.id}"><div class="tile${it.video?" video":""}" style="background-image:${photo(it.seed,it.kind)}">${it.video?`<span class="dur"><svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>${it.dur}</span>`:""}${mark}</div>${S.showNames?`<div class="tname">${esc(it.name)}</div>`:""}</button>`;
+  return `<button type="button" class="cell${selc}" data-id="${it.id}"><div class="tile${it.video?" video":""}" style="background-image:${photo(it.seed,it.kind)}">${it.video?`<span class="dur"><svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg>${it.dur}</span>`:""}${mark}</div>${showNames()?`<div class="tname">${hl(it.name)}</div>`:""}</button>`;
 }
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 
@@ -710,7 +723,7 @@ function render(opts){
       ${S.folder?`<button type="button" class="ibtn" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button>`:`<button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button>`}
     </div>
     <div class="sbox${open?" open":""}" id="sbox"><div><div class="search-wrap">
-      <div class="field">${ic("search")}<input id="q" type="search" placeholder="${ctx==="folders"?"搜索文件夹":"搜索"}" value="${esc(S.q)}" enterkeyhint="search" autocomplete="off"><button type="button" class="clr" data-act="clear-q" ${S.q?"":"hidden"}><span>${ic("x")}</span></button></div>
+      <div class="field">${ic("search")}<input id="q" type="search" placeholder="${ctx==="folders"?"搜索文件夹":"搜索"}" value="${esc(S.q)}" enterkeyhint="search" autocomplete="off"><button type="button" class="clr${S.q?" show":""}" data-act="clear-q" aria-label="清除"><span>${ic("x")}</span></button></div>
       ${segFor(ctx)}
     </div></div></div>`;
   }
@@ -722,10 +735,11 @@ function render(opts){
   /* ---- 原地多选的选择条 ---- */
   if(S.select&&ctx!=="settings"){
     const n=S.sel.size, dis=n?"":"disabled";
-    const b=(act,icon,label,danger)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${dis}>${ic(icon)}${label}</button>`;
+    const b=(act,icon,label,danger,d)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${d===undefined?dis:d}>${ic(icon)}<span>${label}</span></button>`;
+    const ren=b("sel-rename","pen","重命名",0,n===1?"":"disabled");
     const acts= ctx==="trash" ? b("sel-restore","restore","恢复")+b("sel-purge","trash","删除",1)
-              : ctx==="folders" ? b("sel-export","share","导出")+b("sel-del","trash","删除",1)
-              : b("sel-move","move","移动")+b("sel-export","share","导出")+b("sel-del","trash","删除",1);
+              : ctx==="folders" ? ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1)
+              : b("sel-move","move","移动")+ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1);
     sb.innerHTML=`<span class="sc">已选 <b>${n}</b> 项</span><div class="sacts">${acts}</div>`;
     sb.className="selbar"+(S.folder?" last":"");
     sb.hidden=false; root.classList.add("selmode");
@@ -918,10 +932,11 @@ function refreshBody(){
   document.querySelectorAll("#sbox [data-sort]").forEach(b=>b.classList.toggle("on",b.dataset.sort===S.sort));
 }
 function curCtx(){ return S.folder?"folder":S.tab; }
+const RENAMED={};
 function folderItems(){
   const f=FOLDERS.find(x=>x.id===S.folder);
   const seeds=f&&f.s.length?f.s:[11,5,8];
-  return [0,1,2,3,4,5,6,7,8].map(i=>({id:"fd"+i,seed:seeds[i%seeds.length]+i*3,kind:kinds[i%3],name:(f?f.n:"")+" · "+(i+1),video:i===4||i===7,dur:durs[i%6],doc:false}));
+  return [0,1,2,3,4,5,6,7,8].map(i=>({id:"fd"+i,seed:seeds[i%seeds.length]+i*3,kind:kinds[i%3],name:RENAMED[S.folder+"/fd"+i]||((f?f.n:"")+" · "+(i+1)),video:i===4||i===7,dur:durs[i%6],doc:false}));
 }
 const matchQ=name=>!S.q.trim()||name.toLowerCase().includes(S.q.trim().toLowerCase());
 const matchF=it=>S.filter==="all"||(S.filter==="photo"&&!it.doc&&!it.video)||(S.filter==="video"&&it.video)||(S.filter==="doc"&&it.doc);
@@ -931,25 +946,32 @@ function segFor(ctx){
   if(ctx==="folders") return "";
   const opts=[["all","全部"],["photo","图片"],["video","视频"]];
   if(ctx!=="folder") opts.push(["doc","文档"]);
+  if(ctx==="photos") opts.push(["folder","文件夹"]);
   return `<div class="seg" id="filter-seg">${opts.map(([k,l])=>segBtn("filter",k,l,S.filter)).join("")}</div>`;
 }
 function fcardHTML(f, selecting){
   const sel=selecting&&S.sel.has(f.id);
   const mark=selecting?`<span class="mark">${sel?ic("tick"):""}</span>`:"";
-  return `<button type="button" class="fcard${sel?" sel":""}" data-folder="${f.id}"><div class="fwrap">${folderCover(f)}${mark}</div><div class="fname">${esc(f.n)}</div><div class="fcount">${f.c} 项</div></button>`;
+  return `<button type="button" class="fcard${sel?" sel":""}" data-folder="${f.id}"><div class="fwrap">${folderCover(f)}${mark}</div><div class="fname">${hl(f.n)}</div><div class="fcount">${f.c} 项</div></button>`;
 }
+/* 原型一次性渲染全部演示项；正式应用按 DESIGN-NOTES §18 分批解密 / 渲染（每批约 20 项，哨兵触发下一批）。 */
 function buildBody(ctx){
-  const names=S.showNames?"names":"";
+  const names=showNames()?"names":"";
   const empty=`<div class="empty-note">没有匹配的项目</div>`;
   if(ctx==="photos"){
     let html="";
-    if(!(S.search&&(S.q.trim()||S.filter!=="all"))){
-      html+=`<div class="sec" data-flip="sec-f"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
-      html+=`<div class="folders" data-flip="strip">${FOLDERS.map(f=>fcardHTML(f,false)).join("")}</div>`;
-      html+=`<div class="sec" data-flip="sec-r"><h3>最近</h3></div>`;
-    }
+    /* 文件夹横条也参与搜索：每个文件夹单独做 FLIP（横条容器不设 data-flip） */
+    const fl=(S.filter==="all"||S.filter==="folder")?FOLDERS.filter(f=>matchQ(f.n)):[];
     const list=filteredItems();
-    return html+(list.length?`<div class="grid ${names}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`:empty);
+    if(fl.length){
+      html+=`<div class="sec" data-flip="sec-f"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
+      html+=`<div class="folders">${fl.map(f=>fcardHTML(f,false)).join("")}</div>`;
+    }
+    if(list.length){
+      html+=`<div class="sec" data-flip="sec-r"><h3>${S.search&&S.q.trim()?"文件":"最近"}</h3></div>`;
+      html+=`<div class="grid ${names}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`;
+    }
+    return html||empty;
   }
   if(ctx==="folder"){
     const list=folderItems().filter(it=>matchQ(it.name)&&matchF(it));
@@ -970,7 +992,7 @@ function buildBody(ctx){
       const sel=S.select&&S.sel.has(t.id);
       const lead=S.select?`<span class="rsel">${sel?ic("tick"):""}</span>`:"";
       const acts=S.select?"":`<div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div>`;
-      return `<div class="row trow${sel?" sel":""}" data-tid="${t.id}">${lead}${thumb}<div class="tmeta"><b>${esc(t.name)}</b><small>${t.days} 天后删除</small></div>${acts}</div>`;
+      return `<div class="row trow${sel?" sel":""}" data-tid="${t.id}">${lead}${thumb}<div class="tmeta"><b>${hl(t.name)}</b><small>${t.days} 天后删除</small></div>${acts}</div>`;
     }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
   }
   return settingsBody();
@@ -1135,14 +1157,7 @@ function bindAlbum(){
     }
     if(act==="open-wipe"){ S.sub="wipe"; render(); return; }
     if(act==="back-sub"){ S.sub=null; render(); return; }
-    if(act==="rename-folder"){
-      const f=FOLDERS.find(x=>x.id===S.folder); if(!f) return;
-      dialog({title:"重命名文件夹", input:{value:f.n}, ok:"确定", onOk:(v)=>{
-        if(!v.trim()) return "名称不能为空";
-        f.n=v.trim(); render(); toast("已重命名");
-      }});
-      return;
-    }
+    if(act==="rename-folder"){ renameFolder(S.folder); return; }
     if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
     if(act==="toggle-search"){
       S.search=!S.search; S.plus=false;
@@ -1156,8 +1171,19 @@ function bindAlbum(){
       }));
       return;
     }
-    if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } refreshBody(); return; }
+    if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); refreshBody(); return; }
     if(act==="toggle-select"){ S.select=!S.select; S.sel=new Set(); S.plus=false; render(); return; }
+    if(act==="sel-rename"){
+      if(S.sel.size!==1) return;
+      const id=[...S.sel][0], ctx=curCtx();
+      if(ctx==="folders"){ renameFolder(id); return; }
+      if(ctx==="folder"){
+        const it=folderItems().find(x=>x.id===id); if(!it) return;
+        prompt2("重命名", it.name, ".jpg", v=>{ if(!v.trim()) return "名称不能为空"; RENAMED[S.folder+"/"+id]=v.trim(); render(); toast("已重命名"); });
+        return;
+      }
+      renameSelected(id); return;
+    }
     if(act==="sel-move"||act==="sel-export"){ toast("演示：功能占位"); return; }
     if(act==="sel-del"){
       if(curCtx()==="photos"){ deleteSelected(); return; }
@@ -1188,7 +1214,7 @@ function bindAlbum(){
   bindLongPress(root);
   const q=document.getElementById("q");
   if(q){
-    q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.hidden=!S.q; refreshBody(); };
+    q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.classList.toggle("show",!!S.q); refreshBody(); };
   }
 }
 
@@ -1198,6 +1224,13 @@ function splitName(name){
   return {base:name, ext:""};
 }
 
+function renameFolder(id){
+  const f=FOLDERS.find(x=>x.id===id); if(!f) return;
+  dialog({title:"重命名文件夹", input:{value:f.n}, ok:"确定", onOk:(v)=>{
+    if(!v.trim()) return "名称不能为空";
+    f.n=v.trim(); render(); toast("已重命名");
+  }});
+}
 function renameSelected(id){
   const it=ITEMS.find(x=>x.id===id)||null;
   if(!it) return;
@@ -1206,7 +1239,6 @@ function renameSelected(id){
     if(!val.trim()) return "名称不能为空";
     it.name=val.trim()+ext;
     toast("已重命名");
-    S.select=false; S.sel=new Set();
     render();
     return true;
   });
