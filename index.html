@@ -679,7 +679,7 @@ function render(){
     const showSelect=S.tab!=="settings";
     navHTML=`<div class="nav-row"><div class="nav-title"><b>${title}</b>${count?`<small>${count}</small>`:""}</div>
       <button type="button" class="ibtn" data-act="open-search" aria-label="搜索">${ic("search")}</button>
-      ${showSelect?`<button type="button" class="ibtn" data-act="enter-select" aria-label="选择">${ic("check")}</button>`:""}
+      ${showSelect?`<button type="button" class="ibtn" data-act="enter-select" aria-label="选择">${ic("checks")}</button>`:""}
       <button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button></div>`;
   }
   nav.innerHTML=navHTML;
