@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="计算器B">
 <meta name="format-detection" content="telephone=no">
+<meta name="build" content="20261029024155"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest-b.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -36,7 +37,8 @@
   var mode="auto"; try{mode=localStorage.getItem("vp-mode")||"auto";}catch(e){}
   if(sa) d.classList.add("standalone");
   try{ if(localStorage.getItem("sb-plate")==="off") d.classList.add("no-plate"); }catch(e){}
-  try{ var tv=localStorage.getItem("top-variant")||"0"; d.classList.add("tv-"+tv); var tx=localStorage.getItem("top-extra"); if(tx) d.style.setProperty("--top-extra",tx+"px"); }catch(e){}
+  try{ if(localStorage.getItem("top-variant-v")!=="2"){ localStorage.removeItem("top-variant"); localStorage.removeItem("top-extra"); localStorage.removeItem("sb-plate"); d.classList.remove("no-plate"); localStorage.setItem("top-variant-v","2"); } }catch(e){}
+  try{ var tv=localStorage.getItem("top-variant")||"5"; d.classList.add("tv-"+tv); var tx=localStorage.getItem("top-extra"); if(tx) d.style.setProperty("--top-extra",tx+"px"); }catch(e){}
   function apply(){
     if(!sa||mode==="off"){ d.classList.remove("sa-fix"); d.style.removeProperty("--app-h"); return; }
     d.classList.add("sa-fix");
@@ -131,15 +133,27 @@ html.standalone.tv-7 #sbplate,html.standalone.tv-8 #sbplate{pointer-events:auto}
 /* V8：整屏视图不再是 fixed（改 absolute，高度仍为 --app-h），让状态栏板成为顶部唯一的 fixed 元素 */
 html.standalone.tv-8 .view{position:absolute}
 /* V5：顶栏内容整体下移，避开系统模糊带 */
-html.standalone.tv-5 .view>.nav{padding-top:calc(var(--safe-top) + var(--top-extra, 44px))}
+html.standalone{--top-extra:12px}
+html.standalone.tv-5{--grow:calc(var(--top-extra) - min(6px, var(--top-extra) / 2))}   /* 顶栏实际增高 = 下移量 − 行高收紧量 */
+html.standalone.tv-5 .view>.nav{padding-top:calc(var(--safe-top) + var(--top-extra))}
+html.standalone.tv-5 .view>.nav>.nav-row{height:calc(var(--nav-h) - min(6px, var(--top-extra) / 2))}   /* 标题行收紧最多 6px，标题与图标一起下移 */
+/* 把增高量从顶栏下方的空隙里扣回来，整体不显得被往下推 */
+html.standalone.tv-5 .scroll{padding-top:max(0px, calc(6px - var(--grow)))}
+html.standalone.tv-5 .scroll.reserve{padding-top:calc(max(0px, calc(6px - var(--grow))) + var(--sbox-h, 0px))}
+html.standalone.tv-5 #a-body>.sec:first-child{padding-top:max(2px, calc(8px - max(0px, calc(var(--grow) - 6px))))}
+html.standalone.tv-5 .calc{padding-top:max(2px, calc(12px - var(--grow)))}
 /* 视口诊断面板（?vp=1 或连点标题 5 次） */
-#vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 170px);z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
+#vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 150px);max-height:calc(var(--app-h, 100vh) - var(--safe-top) - 150px - var(--safe-bottom) - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
   font:12px/1.45 ui-monospace,Menlo,monospace;box-shadow:0 8px 30px rgba(0,0,0,.4);-webkit-user-select:text;user-select:text}
 #vpdiag pre{white-space:pre-wrap;word-break:break-all;margin:0 0 8px;-webkit-user-select:text;user-select:text}
 #vpdiag .row2{display:flex;gap:6px;flex-wrap:wrap}
 #vpdiag button{background:#333;color:#fff;border-radius:7px;padding:5px 9px;font:12px -apple-system,sans-serif}
 #vpdiag button.on{background:#fff;color:#000}
 #vpdiag .tvs{margin-top:6px}
+#vpdiag .txrow{display:flex;align-items:center;gap:10px}
+#vpdiag .txrow b{font:700 30px/1 -apple-system,sans-serif;min-width:44px;text-align:center}
+#vpdiag .txrow button{font-size:18px;padding:4px 14px}
+#vpdiag input[type=range]{width:100%;margin:6px 0 10px;accent-color:#fff}
 #vpdiag .tvs button{font-size:11.5px}
 body{color:var(--text);overflow:hidden;
   font-family:-apple-system,"SF Pro Text","PingFang SC","Noto Sans CJK SC","Noto Sans SC",sans-serif;
@@ -1725,7 +1739,8 @@ showView();
       "y=2 处元素(上→下): "+document.elementsFromPoint(innerWidth/2,2).filter(e=>e.id!=="vpdiag"&&!e.closest("#vpdiag")).slice(0,4).map(e=>{ const cs=getComputedStyle(e), r=e.getBoundingClientRect(); return (e.tagName.toLowerCase()+(e.id?"#"+e.id:"")+(e.classList.length?"."+[...e.classList].join("."):""))+"["+cs.position+" top"+px(r.top)+" h"+px(r.height)+" "+cs.backgroundColor+"]"; }).join(" › "),
       "y=2 覆盖的 fixed/sticky(含不可点): "+[...document.querySelectorAll("body *")].filter(e=>!e.closest("#vpdiag")&&/fixed|sticky/.test(getComputedStyle(e).position)&&getComputedStyle(e).display!=="none").filter(e=>{const r=e.getBoundingClientRect();return r.top<=2&&r.bottom>2&&r.width>0;}).map(e=>{const cs=getComputedStyle(e),r=e.getBoundingClientRect();return (e.id||e.className||e.tagName)+"["+cs.position+" z"+cs.zIndex+" h"+px(r.height)+" pe:"+cs.pointerEvents+" "+cs.backgroundColor+"]";}).join(" › "),
       "首个 fixed/sticky: "+(function(){ const e=document.elementsFromPoint(innerWidth/2,2).find(x=>!x.closest("#vpdiag")&&/fixed|sticky/.test(getComputedStyle(x).position)); if(!e) return "无"; const cs=getComputedStyle(e), r=e.getBoundingClientRect(); return (e.id||e.className||e.tagName)+" "+cs.position+" top"+px(r.top)+" h"+px(r.height)+" w"+px(r.width)+" "+cs.backgroundColor; })(),
-      "顶部变体: V"+(localStorage.getItem("top-variant")||"0")+"   下移量(V5): "+(localStorage.getItem("top-extra")||"44")+"px",
+      "顶部变体: V"+(localStorage.getItem("top-variant")||"5")+"   下移量(V5): "+(localStorage.getItem("top-extra")||"12")+"px",
+      "版本戳: "+((document.querySelector('meta[name="build"]')||{}).content||"?"),
       "iOS "+(ios||"?").replace(/_/g,".")+"  Safari "+(ver||"?"),
       ua.slice(0,120)
     ].join("\n");
@@ -1740,17 +1755,23 @@ showView();
     d.classList.toggle("no-plate",!plate);
     try{ localStorage.setItem("top-variant",k); localStorage.setItem("sb-plate",plate?"on":"off"); }catch(_){}
   }
+  function getTX(){ return +(localStorage.getItem("top-extra")||12); }
+  function setTX(v){ v=Math.max(0,Math.min(40,v)); document.documentElement.style.setProperty("--top-extra",v+"px"); try{localStorage.setItem("top-extra",String(v));}catch(_){}
+    const t=document.getElementById("txval"); if(t) t.textContent=v; const r=document.getElementById("txrange"); if(r&&+r.value!==v) r.value=v; }
   function render(){
     if(!el) return;
     const m=window.__vp?__vp.mode:"auto";
-    el.innerHTML=`<pre></pre><div class="row2">
+    el.innerHTML=`<div class="txrow"><span>V5 下移</span><button type="button" data-step="-2">−</button><b id="txval">${getTX()}</b><small>px</small><button type="button" data-step="2">＋</button></div>
+      <input id="txrange" type="range" min="0" max="40" step="4" value="${getTX()}">
+      <pre></pre><div class="row2">
       <button type="button" data-m="auto" class="${m==="auto"?"on":""}">自动(屏幕高)</button>
       <button type="button" data-m="vh" class="${m==="vh"?"on":""}">100vh</button>
       <button type="button" data-m="off" class="${m==="off"?"on":""}">关闭修复</button>
       <button type="button" data-x="p" class="${document.documentElement.classList.contains("no-plate")?"":"on"}">状态栏板 ${document.documentElement.classList.contains("no-plate")?"关":"开"}</button>
       <button type="button" data-x="r">刷新</button><button type="button" data-x="c">关闭</button></div>
-      <div class="row2 tvs">${TV.map(([k,l])=>`<button type="button" data-tv="${k}" class="${(localStorage.getItem("top-variant")||"0")===k?"on":""}">V${k} ${l}</button>`).join("")}</div>
-      <div class="row2 tvs">${["24","44","64"].map(x=>`<button type="button" data-tx="${x}" class="${(localStorage.getItem("top-extra")||"44")===x?"on":""}">V5 下移 ${x}</button>`).join("")}</div>`;
+      <div class="row2 tvs">${TV.map(([k,l])=>`<button type="button" data-tv="${k}" class="${(localStorage.getItem("top-variant")||"5")===k?"on":""}">V${k} ${l}</button>`).join("")}</div>
+`;
+    el.querySelector("#txrange").addEventListener("input",e=>setTX(+e.target.value));
     el.querySelector("pre").textContent=text();
   }
   function open(){
@@ -1760,6 +1781,7 @@ showView();
       const b=e.target.closest("button"); if(!b) return;
       if(b.dataset.m&&window.__vp){ __vp.setMode(b.dataset.m); setTimeout(render,50); }
       else if(b.dataset.tv){ setTV(b.dataset.tv); setTimeout(render,50); }
+      else if(b.dataset.step){ setTX(getTX()+ +b.dataset.step); }
       else if(b.dataset.tx){ document.documentElement.style.setProperty("--top-extra",b.dataset.tx+"px"); try{localStorage.setItem("top-extra",b.dataset.tx);}catch(_){} setTimeout(render,50); }
       else if(b.dataset.x==="r") render();
       else if(b.dataset.x==="p"){ const off=document.documentElement.classList.toggle("no-plate"); try{localStorage.setItem("sb-plate",off?"off":"on");}catch(_){} render(); }
@@ -1776,6 +1798,25 @@ showView();
     if(taps.length>=5){ taps=[]; open(); }
   },true);
   if(/[?&]vp=1/.test(location.search)) addEventListener("load",open);
+})();
+
+/* ===== 打开时检查新版本（仅草稿）：主屏 App 会用 HTTP 缓存（GitHub Pages max-age=600）。
+   取线上页面（no-store）比对 <meta name="build">，不同则跳到带 ?r=版本戳 的新地址（绕过缓存）。只在计算器页时做。 ===== */
+(function(){
+  const cur=(document.querySelector('meta[name="build"]')||{}).content||"";
+  if(!cur||cur.indexOf("__")===0) return;
+  async function check(){
+    if(typeof S!=="undefined"&&S.view!=="calc") return;
+    try{
+      const r=await fetch(location.pathname+"?u="+Date.now(),{cache:"no-store"}); if(!r.ok) return;
+      const m=/<meta name="build" content="([^"]+)"/.exec(await r.text());
+      if(!m||m[1]===cur||m[1].indexOf("__")===0) return;
+      const k="upd-"+m[1]; if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k,"1");
+      location.replace(location.pathname+"?r="+m[1]);
+    }catch(e){}
+  }
+  addEventListener("load",check);
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") check(); });
 })();
 </script>
 </body>
