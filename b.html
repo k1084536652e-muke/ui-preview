@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="计算器B">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261029032527"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261029042930"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest-b.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -64,7 +64,7 @@
 :root{
   --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-left:env(safe-area-inset-left,0px); --safe-right:env(safe-area-inset-right,0px);
-  --nav-h:44px; --tab-h:48px; --r-tile:3px;
+  --nav-h:44px; --tab-h:40px; --tab-pb:max(var(--safe-bottom), 6px); --r-tile:3px;
 }
 [data-theme=night]{
   color-scheme:dark; --sb:rgba(255,255,255,.28);
@@ -106,8 +106,8 @@ html.sa-fix{--app-h:100vh}
 html.sa-fix,html.sa-fix body{height:var(--app-h)}
 html.sa-fix .view,html.sa-fix .viewer,html.sa-fix .dlg-back{bottom:auto;height:var(--app-h)}
 /* fixed 的 bottom 以（短）视口为准：补上 --app-h 与视口高度之差（100% = 视口高度） */
-html.sa-fix .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--safe-bottom) + 14px)}
-html.sa-fix #v-album.selmode ~ #layer .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--safe-bottom) + 58px)}
+html.sa-fix .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--tab-pb) + 14px)}
+html.sa-fix #v-album.selmode ~ #layer .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--tab-pb) + 58px)}
 /* 状态栏底板（§23）：iOS 26.1+/27 主屏 App 会在顶部边缘叠加系统渐进模糊；唯一已知规避是一个【自身】position:fixed、
    距顶 ≤4px、高 ≥6px、宽 ≥80%、背景不透明的元素 —— 状态栏随即取其纯色，不再画模糊。颜色 = 当前顶栏色。 */
 #sbplate{position:fixed;top:0;left:0;right:0;height:max(6px, var(--safe-top));background:var(--bar);z-index:90;pointer-events:none}
@@ -187,7 +187,7 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .seg button{display:grid;place-items:center;font-size:13px;color:var(--muted);border-radius:7px;font-weight:500}
 .seg button.on{background:var(--seg-on);color:var(--text);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .scroll{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  padding-top:6px;padding-bottom:calc(var(--tab-h) + var(--safe-bottom) + 44px + 12px);
+  padding-top:6px;padding-bottom:calc(var(--tab-h) + var(--tab-pb) + 44px + 12px);
   padding-left:var(--safe-left);padding-right:var(--safe-right)}
 /* 搜索面板为覆盖层；打开时预留其高度并同步补偿 scrollTop，网格不位移（§25） */
 .scroll.reserve{padding-top:calc(6px + var(--sbox-h,0px))}
@@ -232,6 +232,10 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .doc .mark{border-color:var(--faint);background:transparent}
 .cell.sel .mark{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 0 0 1px var(--ring),0 1px 3px rgba(0,0,0,.3)}
 .mark svg.i{width:14px;height:14px;stroke-width:3}
+/* 白天：选中边框为灰色；选中标记 = 白底 + 黑圈 + 黑勾（夜间不变） */
+[data-theme=day] .cell.sel .tile::after,[data-theme=day] .fcard.sel .fwrap::after{box-shadow:inset 0 0 0 3px #a1a1a6,inset 0 0 0 4px rgba(255,255,255,.7)}
+[data-theme=day] .cell.sel .mark,[data-theme=day] .fcard.sel .mark{background:#fff;border-color:#000;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+[data-theme=day] .row.sel .rsel{background:#fff;border-color:#000;color:#000}
 /* 多选标记常驻 DOM，仅靠 class 显隐：进入 / 退出多选不重建网格、不改布局（§25） */
 #a-body:not(.selecting) .mark,#a-body:not(.selecting) .rsel{display:none}
 .mark svg.i,.rsel svg.i{opacity:0}
@@ -241,49 +245,46 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 /* 系统文件选择器的锚点：透明地覆盖在 + 上，使 iOS 菜单从 + 附近弹出 */
 .picker-input{position:fixed;width:38px;height:38px;opacity:0;pointer-events:none;z-index:-1}
 .empty-note{padding:48px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
-.tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(var(--tab-h) + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(var(--tab-h) + var(--tab-pb));padding:0 var(--safe-right) var(--tab-pb) var(--safe-left);
   background:var(--bar);
   border-top:.5px solid var(--sep);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;z-index:20}
-/* Tab 栏仅图标（参考 YouTube App）：高 48px（整格可点，≥44px），不显示文字，aria-label 保留；
-   当前页 = 文字色 + 实心图标，其它 = 灰色线框 */
-.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);position:relative}
-.tab svg.i path,.tab svg.i circle,.tab svg.i line{transition:fill .15s ease,stroke .15s ease}
-.tabbar .tab.on svg.i{stroke-width:2.1}
-.tabbar .tab.on svg.i path{fill:currentColor}
-.tabbar .tab.on svg.i line,.tabbar .tab.on svg.i circle{stroke:var(--bar);fill:var(--bar)}
-.tabbar .tab.on[data-tab=photos] svg.i path:first-child{fill:var(--bar);stroke:var(--bar)}
-.tabbar .tab.on[data-tab=trash] svg.i path:first-child{fill:none}
+/* Tab 栏仅图标：当前页 = 线框图标、文字色（高亮），其它 = 灰色线框（不用实心）。
+   图标区高 --tab-h(40px)：图标上 10px、下 6px；按钮向下延伸覆盖底部垫高区，整格可点（≥46px）。
+   底部垫高 --tab-pb = max(安全区, 6px)：图标底到屏幕底 = 6 + 34 = 40px，与带文字版「文字底→屏幕底」一致 */
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:calc((var(--tab-h) - 24px) * .625);color:var(--muted);position:relative}
+.tabbar .tab{margin-bottom:calc(-1 * var(--tab-pb));padding-bottom:var(--tab-pb)}
 .tab svg.i{width:24px;height:24px}
 .tab.on{color:var(--text)}
 .tab:disabled{opacity:.35;cursor:default}
 .actionbar .tab{color:var(--icon)}
 .actionbar .tab.danger{color:var(--danger)}
-.badge{position:absolute;top:calc(50% - 19px);left:50%;margin-left:7px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
+.badge{position:absolute;top:calc((var(--tab-h) - 24px) * .625 - 6px);left:50%;margin-left:7px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
 /* 「＋」：38px（原 46px），颜色逻辑同其它 Tab：平时灰色，菜单打开/按下时为文字色 */
-.fab{width:38px;height:38px;border-radius:19px;background:var(--muted);color:var(--bg);display:grid;place-items:center;transition:background .2s ease,color .2s ease,border-color .2s ease}
-.fab svg.i{width:22px;height:22px;stroke-width:2.2;transition:transform .2s ease}
+.fab{width:38px;height:38px;margin-top:-7px;border-radius:19px;background:var(--muted);color:var(--bg);display:grid;place-items:center;transition:background .28s ease,color .28s ease,border-color .28s ease}
+.fab svg.i{width:22px;height:22px;stroke-width:2.2;transition:transform .3s cubic-bezier(.2,.8,.2,1)}
 .fab.open svg.i{transform:rotate(45deg)}
 .fab.open,.tab:active .fab{background:var(--text)}
 [data-theme=day] .fab{background:#fff;color:var(--muted);border:2px solid currentColor}
 [data-theme=day] .fab.open,[data-theme=day] .tab:active .fab{background:#fff;color:#000}
 #a-overlay{position:absolute;inset:0;pointer-events:none;z-index:15}
 #a-overlay.is-open{pointer-events:auto}
-.scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;transition:opacity .2s ease}
+.scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;transition:opacity .28s ease}
 #a-overlay.is-open .scrim{opacity:1}
-#a-overlay.closing .scrim{transition-duration:.15s}
-.pop{position:absolute;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 10px);width:236px;background:var(--sheet);border-radius:14px;z-index:25;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);
+#a-overlay.closing .scrim{transition-duration:.21s}
+#a-overlay.noanim *,.fab.noanim,.fab.noanim *{transition:none!important}
+.pop{position:absolute;left:50%;bottom:calc(var(--tab-h) + var(--tab-pb) + 10px);width:236px;background:var(--sheet);border-radius:14px;z-index:25;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.35);
   transform-origin:bottom center;opacity:0;transform:translateX(-50%) translateY(8px) scale(.85);
-  transition:opacity .22s cubic-bezier(.2,.9,.3,1.2),transform .22s cubic-bezier(.2,.9,.3,1.2);pointer-events:none}
+  transition:opacity .3s cubic-bezier(.2,.9,.3,1.15),transform .32s cubic-bezier(.2,.9,.3,1.15);pointer-events:none}
 #a-overlay.is-open .pop{opacity:1;transform:translateX(-50%) translateY(0) scale(1);pointer-events:auto}
-#a-overlay.closing .pop{transition-duration:.15s;transition-timing-function:ease}
+#a-overlay.closing .pop{transition-duration:.21s;transition-timing-function:cubic-bezier(.4,0,.6,1)}
 .pop button{width:100%;height:50px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:16px;border-bottom:.5px solid var(--sep);text-align:left;
-  opacity:0;transform:translateY(6px);transition:opacity .2s ease,transform .2s ease}
+  opacity:0;transform:translateY(6px);transition:opacity .27s ease,transform .27s cubic-bezier(.2,.8,.2,1)}
 .pop button:last-child{border:0}
 #a-overlay.is-open .pop button{opacity:1;transform:translateY(0)}
-#a-overlay.is-open .pop button:nth-child(1){transition-delay:30ms}
-#a-overlay.is-open .pop button:nth-child(2){transition-delay:60ms}
-#a-overlay.is-open .pop button:nth-child(3){transition-delay:90ms}
-#a-overlay.closing .pop button{transition-duration:.12s;transition-delay:0ms!important}
+#a-overlay.is-open .pop button:nth-child(1){transition-delay:40ms}
+#a-overlay.is-open .pop button:nth-child(2){transition-delay:80ms}
+#a-overlay.is-open .pop button:nth-child(3){transition-delay:120ms}
+#a-overlay.closing .pop button{transition-duration:.17s;transition-delay:0ms!important}
 .tacts{display:flex;align-items:center;gap:0;flex:0 0 auto;margin-left:auto}
 .tacts .txtbtn{padding:0 6px;font-size:14px;height:36px}
 .txtbtn.danger{color:var(--danger);font-weight:550}
@@ -301,6 +302,18 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .row.segrow .seg{flex:1;height:34px}
 .row.segrow .seg button{font-size:14px}
 .gf{font-size:12px;color:var(--muted);padding:7px 16px 0;line-height:1.45}
+.verrow{min-height:60px;padding-top:8px;padding-bottom:8px}
+.verrow .vl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.verrow .vs{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.verrow .vs b{color:var(--text);font-weight:600}
+.vdot{display:inline-block;width:7px;height:7px;border-radius:4px;background:var(--danger);margin-left:6px;vertical-align:2px}
+.vok{margin-left:auto;display:flex;align-items:center;gap:4px;color:var(--muted);font-size:15px;white-space:nowrap}
+.vok svg.i{width:16px;height:16px;stroke-width:2.4}
+.upbtn{margin-left:auto;flex:0 0 auto;height:32px;padding:0 14px;border-radius:16px;background:var(--text);color:var(--bg);font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.upbtn.busy{background:var(--surface-2);color:var(--muted);font-weight:550}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:vspin .8s linear infinite}
+@keyframes vspin{to{transform:rotate(360deg)}}
+.tdot{position:absolute;top:calc((var(--tab-h) - 24px) * .625 - 2px);left:50%;margin-left:9px;width:8px;height:8px;border-radius:4px;background:var(--danger);box-shadow:0 0 0 2px var(--bar)}
 .toggle{margin-left:auto;width:51px;height:31px;border-radius:16px;background:var(--surface-2);position:relative;transition:background .2s;flex:0 0 auto}
 .toggle::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:14px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:transform .2s}
 [data-theme=night] .toggle{background:#39393d}
@@ -458,8 +471,12 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .sbox.open{grid-template-rows:1fr}
 .sbox.open .search-wrap{opacity:1;transform:none}
 /* 原地多选：选择条贴在 Tab 栏上方，不替换 Tab 栏 */
-.selbar{position:absolute;left:0;right:0;bottom:calc(var(--tab-h) + var(--safe-bottom));height:44px;display:flex;align-items:center;gap:6px;padding:0 calc(var(--safe-right) + 8px) 0 calc(var(--safe-left) + 16px);
-  background:var(--bar);border-top:.5px solid var(--sep);z-index:19}
+.selbar{position:absolute;left:0;right:0;bottom:calc(var(--tab-h) + var(--tab-pb));height:44px;display:flex;align-items:center;gap:6px;padding:0 calc(var(--safe-right) + 8px) 0 calc(var(--safe-left) + 16px);
+  background:var(--bar);border-top:.5px solid var(--sep);z-index:19;
+  transform:translateY(100%);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease;pointer-events:none}
+.selbar.show{transform:none;opacity:1;pointer-events:auto}
+.selbar.hiding{transition:transform .22s cubic-bezier(.4,0,1,1),opacity .2s ease}
+@media (prefers-reduced-motion:reduce){.selbar{transition:none}}
 .selbar.last{bottom:0;height:calc(44px + var(--safe-bottom));padding-bottom:var(--safe-bottom)}
 .selbar .sc{font-size:14px;color:var(--muted);white-space:nowrap}
 .selbar .sc b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
@@ -468,7 +485,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .sbtn svg.i{width:20px;height:20px}
 .sbtn.danger{color:var(--danger)}
 .sbtn:disabled{opacity:.35;cursor:default}
-#v-album.selmode ~ #layer .toast{bottom:calc(var(--tab-h) + var(--safe-bottom) + 58px)}
+#v-album.selmode ~ #layer .toast{bottom:calc(var(--tab-h) + var(--tab-pb) + 58px)}
 .fwrap{position:relative}
 .fwrap::after{content:"";position:absolute;inset:0;border-radius:10px;pointer-events:none}
 .fgrid .fwrap::after{border-radius:12px}
@@ -526,7 +543,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .row.segrow.labeled>span{padding-left:8px;font-size:16px;white-space:nowrap}
 .row.segrow.labeled .seg{flex:none;width:100%;height:34px}
 /* 统一 Toast：底部居中、Tab 栏上方，约 2s 后淡出 */
-.toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--safe-bottom) + 14px);transform:translate(-50%,6px);background:var(--text);color:var(--bg);font-size:14px;font-weight:550;padding:8px 16px;border-radius:17px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:calc(var(--tab-h) + var(--tab-pb) + 14px);transform:translate(-50%,6px);background:var(--text);color:var(--bg);font-size:14px;font-weight:550;padding:8px 16px;border-radius:17px;z-index:70;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .2s ease,transform .2s ease;pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){.toast,.dlg-back,.dlg{transition:none!important}}
 </style>
@@ -799,7 +816,7 @@ function toast(msg){
 
 function openAlbum(){
   S.view="album"; S.tab="photos"; S.search=false; S.q=""; S.filter="all";
-  S.select=false; S.sel=new Set(); S.plus=false; S.folder=null; S.sub=null; S.doc=null;
+  S.select=false; S.sel=new Set(); S.plus=false; S.plusResume=false; S.folder=null; S.sub=null; S.doc=null;
   document.getElementById("loan-amount").value="";
   document.getElementById("mortgage-result").hidden=true;
   document.getElementById("mortgage-error").hidden=true;
@@ -808,7 +825,7 @@ function openAlbum(){
 }
 function lock(){
   endPicker();
-  S.view="calc"; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; S.sub=null; S.doc=null;
+  S.view="calc"; S.plus=false; S.plusResume=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; S.sub=null; S.doc=null;
   showView();
 }
 function showView(){
@@ -863,15 +880,11 @@ function render(opts){
   const body=document.getElementById("a-body");
   const bar=document.getElementById("a-bar");
   const overlay=document.getElementById("a-overlay");
-  overlay.innerHTML="";
+  if(!(S.plus&&overlay.dataset.plusBuilt&&!S.doc)){ overlay.innerHTML=""; delete overlay.dataset.plusBuilt; overlay.classList.remove("is-open","closing"); }
   body.style.paddingBottom="";
-
-  const sb=document.getElementById("a-sel");
-  const root=document.getElementById("v-album");
-  sb.hidden=true; root.classList.remove("selmode");
   body.style.removeProperty("--sbox-h");
 
-  if(S.doc){ renderDoc(nav,body,bar,overlay); bindAlbum(); return; }
+  if(S.doc){ renderSelbar(true); renderDoc(nav,body,bar,overlay); bindAlbum(); return; }
 
   const ctx=curCtx();
   const f=S.folder?FOLDERS.find(x=>x.id===S.folder):null;
@@ -903,7 +916,7 @@ function render(opts){
   const sOpen=!!document.querySelector("#sbox.open");
   body.className="scroll"+(S.folder?" notab":"")+(S.select&&ctx!=="settings"?" selecting":"")+(sOpen?" reserve":"");
   if(sOpen) body.style.setProperty("--sbox-h", sboxH()+"px");
-  if(!(opts&&opts.keepBody)) body.innerHTML=buildBody(ctx);
+  if(!(opts&&opts.keepBody)){ const st=body.scrollTop; body.innerHTML=buildBody(ctx); if(opts&&opts.keepScroll) body.scrollTop=st; }
 
   renderSelbar();
 
@@ -914,19 +927,28 @@ function render(opts){
     bar.innerHTML=`
       <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos" aria-label="首页" ${S.tab==="photos"?'aria-current="page"':""}>${ic("house")}</button>
       <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders" aria-label="文件夹" ${S.tab==="folders"?'aria-current="page"':""}>${ic("folder")}</button>
-      <button type="button" class="tab" data-act="plus" aria-label="添加" aria-expanded="${S.plus||S.picking?"true":"false"}"><span class="fab${S.picking?" open":""}">${ic("plus")}</span></button>
+      <button type="button" class="tab" data-act="plus" aria-label="添加" aria-expanded="${S.plus||S.picking?"true":"false"}"><span class="fab${S.picking||(S.plus&&overlay.dataset.plusBuilt)?" open":""}">${ic("plus")}</span></button>
       <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash" aria-label="回收站${trashCount?`（${trashCount}）`:""}" ${S.tab==="trash"?'aria-current="page"':""}>${ic("trash")}${trashCount?`<span class="badge" aria-hidden="true">${trashCount}</span>`:""}</button>
-      <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings" aria-label="设置" ${S.tab==="settings"?'aria-current="page"':""}>${ic("gear")}</button>`;
+      <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings" aria-label="设置${VER.st===1?"（有新版本）":""}" ${S.tab==="settings"?'aria-current="page"':""}>${ic("gear")}${VER.st===1?'<i class="tdot" aria-hidden="true"></i>':""}</button>`;
   }
   renderPlusLayer(opts, overlay, bar);
 }
 /* 原地多选的选择条（覆盖在 Tab 栏上方，不参与布局） */
-function renderSelbar(){
+/* 出现：从 Tab 栏后方滑入 + 淡入；消失：反向。内容区底部始终预留选择条高度，所以不引起网格位移（§25/§27） */
+function renderSelbar(instant){
   const sb=document.getElementById("a-sel");
   const root=document.getElementById("v-album");
   const ctx=curCtx();
-  sb.hidden=true; root.classList.remove("selmode");
-  if(S.select&&ctx!=="settings"&&!S.doc){
+  const want=S.select&&ctx!=="settings"&&!S.doc;
+  clearTimeout(sb._t);
+  if(!want){
+    root.classList.remove("selmode");
+    if(instant||sb.hidden||!sb.classList.contains("show")){ sb.classList.remove("show","hiding"); sb.hidden=true; return; }
+    sb.classList.add("hiding"); sb.classList.remove("show");
+    sb._t=setTimeout(()=>{ sb.hidden=true; sb.classList.remove("hiding"); },240);
+    return;
+  }
+  if(want){
     const n=S.sel.size, dis=n?"":"disabled";
     const b=(act,icon,label,danger,d)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${d===undefined?dis:d}>${ic(icon)}<span>${label}</span></button>`;
     const ren=b("sel-rename","pen","重命名",0,n===1?"":"disabled");
@@ -934,8 +956,10 @@ function renderSelbar(){
               : ctx==="folders" ? ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1)
               : b("sel-move","move","移动")+ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1);
     sb.innerHTML=`<span class="sc">已选 <b>${n}</b> 项</span><div class="sacts">${acts}</div>`;
-    sb.className="selbar"+(S.folder?" last":"");
+    const wasShown=!sb.hidden&&sb.classList.contains("show");
+    sb.className="selbar"+(S.folder?" last":"")+(wasShown?" show":"");
     sb.hidden=false; root.classList.add("selmode");
+    if(!wasShown){ void sb.offsetWidth; sb.classList.add("show"); }
   }
 }
 /* 进入 / 退出多选：只切 class、更新顶栏按钮与选择条，不重建内容、不播放 FLIP（§25） */
@@ -965,6 +989,11 @@ function renderPlusLayer(opts, overlay, bar){
       overlay.dataset.plusBuilt="1";
       overlay.classList.remove("is-open","closing");
       const fab=bar.querySelector(".fab");
+      if(reopenPlus){   /* 从「新建文档」返回：菜单原样仍在，不重播弹出动画 */
+        overlay.classList.add("noanim","is-open"); fab&&fab.classList.add("noanim","open");
+        void overlay.offsetWidth; requestAnimationFrame(()=>{ overlay.classList.remove("noanim"); fab&&fab.classList.remove("noanim"); });
+        bindAlbum(); return;
+      }
       if(fab) fab.classList.remove("open");
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         if(!S.plus) return;
@@ -985,6 +1014,19 @@ function renderPlusLayer(opts, overlay, bar){
   bindAlbum();
 }
 
+/* 设置 ›「版本」行（§29）：三种状态的静态展示；真实检查/下载/激活由正式应用实现 */
+const VER={st:0,cur:"2.0.1",next:"2.0.2",timer:0};
+function verRowHTML(){
+  if(VER.st===1) return `<button type="button" class="row verrow" data-act="ver-update" aria-label="版本：当前 ${VER.cur}，发现新版本 ${VER.next}，点击更新">
+      <span class="vl"><span>版本<i class="vdot" aria-hidden="true"></i></span><span class="vs">当前 ${VER.cur} · 发现新版本 <b>${VER.next}</b></span></span>
+      <span class="upbtn">点击更新</span></button>`;
+  if(VER.st===2) return `<div class="row verrow" aria-live="polite">
+      <span class="vl"><span>版本</span><span class="vs">正在更新到 ${VER.next}，请勿关闭</span></span>
+      <span class="upbtn busy"><i class="spin" aria-hidden="true"></i>正在更新…</span></div>`;
+  return `<button type="button" class="row verrow" data-act="ver-cycle" aria-label="版本 ${VER.cur}，已是最新">
+      <span class="vl"><span>版本</span><span class="vs">${VER.cur}</span></span>
+      <span class="vok">${ic("tick")}已是最新</span></button>`;
+}
 function settingsBody(){
   if(S.sub==="pin"){
     return `
@@ -1047,8 +1089,9 @@ function settingsBody(){
         </div>
         <div class="gh">关于</div>
         <div class="group">
-          <button type="button" class="row" data-act="noop"><span>版本</span><span class="v">原型 0.1</span></button>
+          ${verRowHTML()}
         </div>
+        <p class="gf">草稿演示：点按「版本」行可依次查看三种状态（已是最新 → 发现新版本 → 正在更新）。</p>
       </div>`;
   }
 
@@ -1071,7 +1114,7 @@ function bindLongPress(root){
     const key=lpKey(el); if(!key) return;
     LP.x=e.clientX; LP.y=e.clientY; cancel();
     LP.timer=setTimeout(()=>{
-      LP.timer=0; LP.suppress=true;
+      LP.timer=0; LP.suppress=true; LP.key=key; if(DS.track) DS.armed=true;
       try{ navigator.vibrate&&navigator.vibrate(8); }catch(_){}
       S.select=true; S.sel=new Set([key]); if(S.plus) closePlusMenu(); applySelect();
       const sel=`[data-id="${key}"],[data-folder="${key}"],[data-tid="${key}"]`;
@@ -1084,6 +1127,76 @@ function bindLongPress(root){
   root.onpointerup=root.onpointercancel=root.onpointerleave=cancel;
   document.getElementById("a-body").onscroll=cancel;
   root.oncontextmenu=function(e){ if(e.target.closest(".cell,.fcard,.trow")) e.preventDefault(); };
+}
+/* 拖动多选（§28）：多选中横向起手拖动，或长按进入多选后不松手继续拖动；
+   手指经过的每一项在本次拖动中反选一次；靠近上下边缘时内容区自动滚动；竖向起手 = 正常滚动 */
+const DS={track:false,decided:false,on:false,armed:false,x0:0,y0:0,x:0,y:0,seen:new Set(),raf:0,mouse:false};
+function dsKeyAt(x,y){
+  const el=document.elementFromPoint(x,y); if(!el) return null;
+  const t=el.closest("#a-body [data-id],#a-body [data-folder],#a-body [data-tid]");
+  return t?lpKey(t):null;
+}
+function dsVisit(){
+  const k=dsKeyAt(DS.x,DS.y);
+  if(k&&!DS.seen.has(k)){ DS.seen.add(k); toggleSel(k); }
+}
+function dsEdges(){
+  const body=document.getElementById("a-body"), r=body.getBoundingClientRect();
+  let bottom=r.bottom;
+  const sb=document.getElementById("a-sel"), bar=document.getElementById("a-bar");
+  if(sb&&!sb.hidden) bottom=Math.min(bottom,sb.getBoundingClientRect().top);
+  else if(bar&&!bar.hidden) bottom=Math.min(bottom,bar.getBoundingClientRect().top);
+  const top=r.top+(parseFloat(getComputedStyle(body).getPropertyValue("--sbox-h"))||0);
+  return {body,top,bottom};
+}
+function dsLoop(){
+  if(!DS.on) return;
+  const {body,top,bottom}=dsEdges(), E=64, MAX=16;
+  let v=0;
+  if(DS.y<top+E) v=-MAX*Math.min(1,(top+E-DS.y)/E);
+  else if(DS.y>bottom-E) v=MAX*Math.min(1,(DS.y-(bottom-E))/E);
+  if(v){ const before=body.scrollTop; body.scrollTop+=v; if(body.scrollTop!==before) dsVisit(); }
+  DS.raf=requestAnimationFrame(dsLoop);
+}
+function dsStart(firstKeySeen){
+  DS.on=true; DS.decided=true; clearTimeout(LP.timer); LP.timer=0;
+  DS.seen=new Set(firstKeySeen?[firstKeySeen]:[]);
+  if(!firstKeySeen){ const k0=dsKeyAt(DS.x0,DS.y0); if(k0){ DS.seen.add(k0); toggleSel(k0); } }
+  dsVisit(); cancelAnimationFrame(DS.raf); DS.raf=requestAnimationFrame(dsLoop);
+}
+function dsEnd(){
+  const was=DS.on&&DS.mouse;   /* 鼠标拖完会补发 click，需吞掉；触摸拖动不会产生 click */
+  DS.on=false; DS.track=false; DS.armed=false; DS.decided=false; cancelAnimationFrame(DS.raf);
+  if(was){ LP.suppress=true; setTimeout(()=>{ LP.suppress=false; },400); }
+}
+function dsMove(x,y,e){
+  DS.x=x; DS.y=y;
+  if(DS.on){ e.preventDefault(); dsVisit(); return; }
+  if(DS.armed){ e.preventDefault(); dsStart(LP.key); return; }
+  if(!S.select||DS.decided) return;
+  const dx=x-DS.x0, dy=y-DS.y0;
+  if(Math.hypot(dx,dy)<8) return;
+  DS.decided=true;
+  const onTile=!!dsKeyAt(DS.x0,DS.y0);
+  if(onTile&&(DS.mouse||Math.abs(dx)>Math.abs(dy)*1.2)){ e.preventDefault(); dsStart(null); }
+  else DS.track=false;   /* 竖向起手：交给浏览器滚动 */
+}
+function bindDragSelect(){
+  const body=document.getElementById("a-body");
+  if(body._ds) return; body._ds=true;
+  body.addEventListener("touchstart",e=>{
+    if(e.touches.length!==1){ dsEnd(); return; }
+    const t=e.touches[0]; DS.track=true; DS.decided=false; DS.mouse=false; DS.armed=false;
+    DS.x0=DS.x=t.clientX; DS.y0=DS.y=t.clientY;
+  },{passive:true});
+  body.addEventListener("touchmove",e=>{ if(!DS.track||e.touches.length!==1) return; const t=e.touches[0]; dsMove(t.clientX,t.clientY,e); },{passive:false});
+  body.addEventListener("touchend",dsEnd); body.addEventListener("touchcancel",dsEnd);
+  body.addEventListener("pointerdown",e=>{
+    if(e.pointerType!=="mouse"||e.button>0) return;
+    DS.track=true; DS.decided=false; DS.mouse=true; DS.armed=false; DS.x0=DS.x=e.clientX; DS.y0=DS.y=e.clientY;
+  });
+  window.addEventListener("pointermove",e=>{ if(e.pointerType!=="mouse"||!DS.track||!DS.mouse) return; if(!(e.buttons&1)){ dsEnd(); return; } dsMove(e.clientX,e.clientY,e); });
+  window.addEventListener("pointerup",e=>{ if(e.pointerType==="mouse"&&DS.mouse) dsEnd(); });
 }
 function resetModes(){ S.search=false; S.searchAnim=false; S.q=""; S.filter="all"; S.select=false; S.sel=new Set(); }
 function toggleSel(id){ const on=!S.sel.has(id); if(on) S.sel.add(id); else S.sel.delete(id); markSel(id,on); renderSelbar(); }
@@ -1315,6 +1428,7 @@ function toggleSearch(){
 /* 「＋ › 添加照片」打开系统选取器（§24）：选取器打开期间 + 保持按下（×）状态，
    直到 change / cancel、window focus / visibilitychange 回来或用户点任意处才复原。 */
 const PICK={openedAt:0,endedAt:0,input:null,off:null};
+let reopenPlus=false;
 function startPicker(){
   const fab=document.querySelector("#a-bar .fab");
   if(PICK.input) PICK.input.remove();
@@ -1326,17 +1440,17 @@ function startPicker(){
   const t=document.querySelector('#a-bar [data-act="plus"]'); t&&t.setAttribute("aria-expanded","true");
   const later=()=>{ if(Date.now()-PICK.openedAt>400) setTimeout(endPicker,350); };
   const onVis=()=>{ if(document.visibilityState==="visible") later(); };
-  const onDown=(e)=>{ if(Date.now()-PICK.openedAt<300) return; if(e.target.closest&&e.target.closest('[data-act="plus"]')) PICK.endedAt=Date.now(); endPicker(); };
+  const onDown=(e)=>{ if(Date.now()-PICK.openedAt<300) return; endPicker(); };
   inp.addEventListener("change",()=>{ const n=inp.files?inp.files.length:0; endPicker(); if(n) toast(`已选择 ${n} 个文件`); });
   inp.addEventListener("cancel",()=>endPicker());
   window.addEventListener("focus",later); document.addEventListener("visibilitychange",onVis); document.addEventListener("pointerdown",onDown,true);
   PICK.off=()=>{ window.removeEventListener("focus",later); document.removeEventListener("visibilitychange",onVis); document.removeEventListener("pointerdown",onDown,true); };
-  inp.click();        /* 必须在点击手势内同步调用 */
-  closePlusMenu();    /* 菜单项收起，但 + 保持按下 */
+  inp.click();        /* 必须在点击手势内同步调用；菜单保持展开、+ 保持 ×（§24/§30） */
 }
 function endPicker(){
   if(!S.picking) return;
   S.picking=false; PICK.off&&PICK.off(); PICK.off=null;
+  if(S.plus) return;   /* 菜单仍展开：+ 继续保持 × */
   const fab=document.querySelector("#a-bar .fab"); fab&&fab.classList.remove("open");
   const t=document.querySelector('#a-bar [data-act="plus"]'); t&&t.setAttribute("aria-expanded","false");
 }
@@ -1357,7 +1471,7 @@ function closePlusMenu(after){
     render();
   };
   if(reduce) done();
-  else setTimeout(done, 160);
+  else setTimeout(done, 220);
 }
 
 function bindAlbum(){
@@ -1402,11 +1516,16 @@ function bindAlbum(){
     if(!act) return;
     if(act==="lock"){ lock(); return; }
     if(act==="back"){ S.tab="photos"; render(); return; }
-    if(act==="doc-back"){ S.doc=null; render(); return; }
+    if(act==="doc-back"){ S.doc=null; if(S.plusResume){ S.plusResume=false; S.plus=true; reopenPlus=true; } render(); reopenPlus=false; return; }
     if(act==="doc-edit"){ S.doc.mode="edit"; render(); return; }
     if(act==="doc-done"){ S.doc.mode="view"; S.doc.sheet=false; S.doc.isNew=false; toast("已保存"); render(); return; }
     if(act==="doc-aa"){ S.doc.sheet=!S.doc.sheet; render(); return; }
     if(act==="open-pin"){ S.sub="pin"; render(); return; }
+    if(act==="ver-cycle"){ VER.st=1; render({keepScroll:true}); return; }
+    if(act==="ver-update"){ dialog({title:`更新到 ${VER.next}？`, text:"只更新应用本身，相册中的文件、文件夹与设置都不受影响。更新需要几秒钟，完成后会自动重新打开。", ok:"更新", onOk:()=>{
+        VER.st=2; render({keepScroll:true});
+        clearTimeout(VER.timer); VER.timer=setTimeout(()=>{ VER.cur=VER.next; VER.next=VER.next.replace(/\d+$/,m=>+m+1); VER.st=0; if(S.view==="album"&&S.tab==="settings"&&!S.sub) render({keepScroll:true}); toast(`已更新到 ${VER.cur}`); },2600);
+      }}); return; }
     if(act==="open-retention"){ S.sub="retention"; render(); return; }
     if(act==="empty-trash"){
       const n=TRASH.length; if(!n) return;
@@ -1444,22 +1563,22 @@ function bindAlbum(){
       dialog({title:`永久删除 ${n} 项？`, text:"删除后无法恢复", ok:"删除", danger:true, onOk:()=>{ TRASH=TRASH.filter(x=>!S.sel.has(x.id)); S.sel=new Set(); render(); toast("已删除"); }});
       return;
     }
-    if(act==="plus"){ if(S.picking){ endPicker(); return; } if(Date.now()-PICK.endedAt<400) return; if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
+    if(act==="plus"){ if(S.picking) endPicker(); if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
+    /* 菜单内三个按钮都不收起菜单（§30）：只有点遮罩或再点 × 才收起 */
     if(act==="add-photo"){ startPicker(); return; }
     if(act==="close-plus"){ closePlusMenu(); return; }
-    if(act==="add-photo"||act==="add-doc"||act==="add-folder"){ closePlusMenu(()=>{
-      if(act==="add-doc"){ S.doc={id:null,title:"",isNew:true,mode:"edit",sheet:false}; }
-      else if(act==="add-folder"){ setTimeout(()=>dialog({title:"新建文件夹", input:{value:"", placeholder:"文件夹名称"}, ok:"创建", onOk:(v)=>{
+    if(act==="add-folder"){ dialog({title:"新建文件夹", input:{value:"", placeholder:"文件夹名称"}, ok:"创建", onOk:(v)=>{
         if(!v.trim()) return "名称不能为空";
-        FOLDERS.push({id:"f"+Date.now(),n:v.trim(),c:0,s:[]}); render(); toast("已创建");
-      }}),0); }
-      else toast("演示：已记录操作"); }); return; }
+        FOLDERS.push({id:"f"+Date.now(),n:v.trim(),c:0,s:[]}); render({keepBody:false}); toast("已创建");
+      }}); return; }
+    if(act==="add-doc"){ S.plusResume=true; S.plus=false; S.doc={id:null,title:"",isNew:true,mode:"edit",sheet:false}; render(); document.getElementById("a-body").scrollTop=0; return; }
     if(act==="goto-folders"){ S.tab="folders"; render(); return; }
     if(act==="toggle-names"){ S.showNames=!S.showNames; render(); return; }
     if(act==="share"||act==="move"){ toast("演示：功能占位"); return; }
     if(act==="noop"){ toast("演示：功能占位"); return; }
   };
   bindLongPress(root);
+  bindDragSelect();
   const q=document.getElementById("q");
   if(q){
     q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.classList.toggle("show",!!S.q); refreshBody(); };
