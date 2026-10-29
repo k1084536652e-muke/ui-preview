@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261029131228"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261029140001"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -425,9 +425,9 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .fp-sbtn{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;color:var(--icon);flex:0 0 auto;transition:background .2s ease}
 .fp-sbtn svg.i{width:19px;height:19px}
 .fp-sbtn.on{background:var(--surface-2)}
-.fp-sbox{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1);flex:0 0 auto}
+.fp-sbox{display:grid;grid-template-rows:0fr;transition:grid-template-rows .36s cubic-bezier(.2,.8,.2,1);flex:0 0 auto}
 .fp-sbox>div{min-height:0;overflow:hidden;padding:0 14px}
-.fp-sbox .field{margin-bottom:10px;opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
+.fp-sbox .field{margin-bottom:10px;opacity:0;transform:translateY(-6px);transition:opacity .28s ease,transform .36s cubic-bezier(.2,.8,.2,1)}
 .fpk.searching .fp-sbox{grid-template-rows:1fr}
 .fpk.searching .fp-sbox .field{opacity:1;transform:none}
 /* 弹窗内输入框必须清晰可辨（§41）：夜间 #2c2c2e 底 + 1px 浅描边；白天 #f2f2f7 底 + 1px 深描边 */
@@ -533,18 +533,18 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 /* 原地搜索面板：从顶栏下方展开 / 收起 */
 .nav .ibtn.on{background:var(--surface-2)}
 .nav-row.sub.icons{padding-right:8px}
-.sbox{position:absolute;left:0;right:0;top:100%;margin-top:0;box-shadow:0 -1px 0 var(--bar);background:var(--bar);z-index:var(--z-searchpanel);display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1),box-shadow .26s ease}
+.sbox{position:absolute;left:0;right:0;top:100%;margin-top:0;box-shadow:0 -1px 0 var(--bar);background:var(--bar);z-index:var(--z-searchpanel);display:grid;grid-template-rows:0fr;transition:grid-template-rows .36s cubic-bezier(.2,.8,.2,1),box-shadow .36s ease}
 .sbox.open{box-shadow:0 -1px 0 var(--bar),0 .5px 0 var(--sep)}   /* 向上 1px 同色阴影盖住顶栏底边线与亚像素缝（§37） */
 .sbox>div{min-height:0;overflow:hidden}
-.sbox .search-wrap{opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
+.sbox .search-wrap{opacity:0;transform:translateY(-8px);transition:opacity .28s ease,transform .36s cubic-bezier(.2,.8,.2,1)}
 .sbox.open{grid-template-rows:1fr}
 .sbox.open .search-wrap{opacity:1;transform:none}
 /* 原地多选：选择条贴在 Tab 栏上方，不替换 Tab 栏 */
 .selbar{position:absolute;left:0;right:0;bottom:calc(var(--tab-h) + var(--tab-pb));height:44px;display:flex;align-items:center;gap:6px;padding:0 calc(var(--safe-right) + 8px) 0 calc(var(--safe-left) + 16px);
   background:var(--bar);border-top:.5px solid var(--sep);z-index:var(--z-selbar);
-  transform:translateY(100%);opacity:0;transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease;pointer-events:none}
+  transform:translateY(100%);opacity:0;transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .3s ease;pointer-events:none}
 .selbar.show{transform:none;opacity:1;pointer-events:auto}
-.selbar.hiding{transition:transform .22s cubic-bezier(.4,0,1,1),opacity .2s ease}
+.selbar.hiding{transition:transform .3s cubic-bezier(.4,0,.8,1),opacity .28s ease}
 @media (prefers-reduced-motion:reduce){.selbar{transition:none}}
 .selbar.last{bottom:0;height:calc(44px + var(--safe-bottom));padding-bottom:var(--safe-bottom)}
 .selbar .sc{font-size:14px;color:var(--muted);white-space:nowrap}
@@ -1020,14 +1020,16 @@ function renderSelbar(instant){
   const root=document.getElementById("v-album");
   const ctx=curCtx();
   const want=S.select&&ctx!=="settings"&&!S.doc;
-  clearTimeout(sb._t);
   if(!want){
     root.classList.remove("selmode");
+    if(sb.classList.contains("hiding")&&!instant) return;   /* 退出动画进行中（如与搜索同时进行时的重渲染）：不打断 */
+    clearTimeout(sb._t);
     if(instant||sb.hidden||!sb.classList.contains("show")){ sb.classList.remove("show","hiding"); sb.hidden=true; return; }
     sb.classList.add("hiding"); sb.classList.remove("show");
-    sb._t=setTimeout(()=>{ sb.hidden=true; sb.classList.remove("hiding"); },240);
+    sb._t=setTimeout(()=>{ sb.hidden=true; sb.classList.remove("hiding"); },320);
     return;
   }
+  clearTimeout(sb._t); sb.classList.remove("hiding");
   if(want){
     const n=S.sel.size, dis=n?"":"disabled";
     const b=(act,icon,label,danger,d)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${d===undefined?dis:d}>${ic(icon)}<span>${label}</span></button>`;
@@ -1482,7 +1484,6 @@ function updSearchDot(){
 }
 /* 多选 ↔ 搜索互斥且先后执行（§39） */
 function exitSelect(){ if(!S.select) return; S.select=false; S.sel=new Set(); applySelect(); }
-const SEQ={busy:false};
 function toggleSearch(){
   const body=document.getElementById("a-body");
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1490,6 +1491,7 @@ function toggleSearch(){
   if(!S.search){
     S.search=true; S.searchAnim=true; render({keepBody:true}); S.searchAnim=false;
     const box=document.getElementById("sbox"), H=sboxH();
+    { const q=document.getElementById("q"); q&&q.focus({preventScroll:true}); }   /* 在点击手势内同步聚焦，iOS 才会弹出键盘 */
     requestAnimationFrame(()=>{
       if(!S.search) return;
       box.classList.add("open");
@@ -1511,8 +1513,8 @@ function toggleSearch(){
   const st=body.scrollTop, shift=Math.max(0,H-st);
   body.classList.remove("reserve"); body.style.removeProperty("--sbox-h"); body.scrollTop=Math.max(0,st-H);
   /* 只有在列表顶部（scrollTop < 面板高度）时，内容会随面板收起同步上移，不是 FLIP */
-  if(shift&&!reduce) [...body.children].forEach(el=>el.animate([{transform:`translateY(${shift}px)`},{transform:"none"}],{duration:260,easing:"cubic-bezier(.2,.8,.2,1)"}));
-  setTimeout(()=>{ if(!S.search&&S.view==="album"&&!S.doc) render({keepBody:true}); },300);
+  if(shift&&!reduce) [...body.children].forEach(el=>el.animate([{transform:`translateY(${shift}px)`},{transform:"none"}],{duration:360,easing:"cubic-bezier(.2,.8,.2,1)"}));
+  setTimeout(()=>{ if(!S.search&&S.view==="album"&&!S.doc) render({keepBody:true}); },400);
 }
 
 /* 「＋ › 添加照片」打开系统选取器（§24）：选取器打开期间 + 保持按下（×）状态，
@@ -1706,12 +1708,11 @@ function bindAlbum(){
     if(act==="back-sub"){ S.sub=null; render(); return; }
     if(act==="rename-folder"){ renameFolder(S.folder); return; }
     if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
-    if(act==="toggle-search"){ if(SEQ.busy) return;
-      if(!S.search&&S.select){ SEQ.busy=true; exitSelect(); setTimeout(()=>{ SEQ.busy=false; if(!S.select&&!S.search) toggleSearch(); },250); return; }
-      toggleSearch(); return; }
+    /* 搜索与多选互斥，切换时两个动画同时进行（§39 第四轮修订） */
+    if(act==="toggle-search"){ if(!S.search&&S.select) exitSelect(); toggleSearch(); return; }
     if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); updSearchDot(); refreshBody(); return; }
-    if(act==="toggle-select"){ if(SEQ.busy) return;
-      if(!S.select&&S.search){ SEQ.busy=true; toggleSearch(); setTimeout(()=>{ SEQ.busy=false; if(!S.search&&!S.select){ S.select=true; S.sel=new Set(); applySelect(); } },320); return; }
+    if(act==="toggle-select"){
+      if(!S.select&&S.search) toggleSearch();
       S.select=!S.select; S.sel=new Set(); if(S.plus) closePlusMenu(); applySelect(); return; }
     if(act==="sel-rename"){
       if(S.sel.size!==1) return;
@@ -1825,8 +1826,12 @@ function dialog(opts){
   requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add("show")));
   const el=wrap.querySelector("#dlg-in");
   if(el){ el.focus(); el.select(); }
-  const close=()=>{ wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),180); };
+  const close=()=>{ wrap.style.pointerEvents="none"; wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),180); };
+  /* 点遮罩（按下与松开都在遮罩上）= 取消（§45）；叠放时只关闭最上层 */
+  let downOnBack=false;
+  wrap.onpointerdown=e=>{ downOnBack=e.target===wrap; };
   wrap.onclick=(e)=>{
+    if(e.target===wrap){ if(downOnBack) close(); downOnBack=false; return; }
     const b=e.target.closest("[data-x]");
     if(!b) return;
     if(b.dataset.x==="c"){ close(); return; }
@@ -1866,11 +1871,13 @@ function openFolderPicker(){
   };
   draw();
   requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add("show")));
-  const close=()=>{ wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),200); };
+  const close=()=>{ wrap.style.pointerEvents="none"; wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),200); };
   const dot=()=>wrap.querySelector(".fp-sbtn .sdot").classList.toggle("show",!!q.trim());
   inp.oninput=()=>{ q=inp.value; clr.classList.toggle("show",!!q); dot(); draw(); };
+  let downOnBack=false;
+  wrap.onpointerdown=e=>{ downOnBack=e.target===wrap; };
   wrap.onclick=(e)=>{
-    if(e.target===wrap) return;   /* 点框外不关闭，避免误触丢失勾选 */
+    if(e.target===wrap){ if(downOnBack) close(); downOnBack=false; return; }   /* 点遮罩 = 取消（§45，第四轮推翻第二轮的判断） */
     const r=e.target.closest("[data-f]");
     if(r){ const id=r.dataset.f, st=cur[id];
       cur[id]= st==="all" ? "none" : st==="none" ? (init[id]==="some"?"some":"all") : "all";   /* 半选 → 全选 → 不选 → 半选（仅初始为半选时） */
