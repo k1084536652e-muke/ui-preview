@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261029051145"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261029131228"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -168,6 +168,10 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .nav-title small{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
 .ibtn{width:40px;height:40px;display:grid;place-items:center;color:var(--icon);border-radius:20px;flex:0 0 auto}
 .ibtn.on{color:var(--accent)}
+.ibtn{position:relative}
+/* 搜索角标（§40）：有关键词时放大镜下方 5px 红点，展开 / 收起都显示 */
+.sdot{position:absolute;left:50%;bottom:2px;width:5px;height:5px;margin-left:-2.5px;border-radius:3px;background:var(--danger);opacity:0;transform:scale(.3);transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.3,1.3);pointer-events:none}
+.sdot.show{opacity:1;transform:none}
 .txtbtn{font-size:16px;color:var(--text);font-weight:500;padding:0 8px;height:40px;display:flex;align-items:center;white-space:nowrap}
 .nav-row.three{display:grid;grid-template-columns:96px 1fr 96px;padding:0 8px}
 .nav-row.three .mid{text-align:center;font-size:17px;font-weight:650;white-space:nowrap}
@@ -190,7 +194,7 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .seg button.on{background:var(--seg-on);color:var(--text);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.18)}
 /* 设置「外观」分段控件：iOS 式滑块（§35）。选中块颜色沿用原样式（--seg-on：白天白、夜间灰），只加滑动 */
 .seg.slide{position:relative;touch-action:pan-y}
-.seg.slide .seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 8px) / 3);border-radius:7px;background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.18);
+.seg.slide .seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px - (var(--n, 3) - 1) * 2px) / var(--n, 3));border-radius:7px;background:var(--seg-on);box-shadow:0 1px 3px rgba(0,0,0,.18);
   transform:translateX(calc(var(--i, 0) * (100% + 2px)));transition:transform .42s cubic-bezier(.32,1.3,.5,1),background-color .25s ease;pointer-events:none;will-change:transform}
 .seg.slide.dragging .seg-thumb{transition:background-color .25s ease;transform:translateX(var(--dx))}
 .seg.slide button{position:relative;z-index:1;transition:color .28s ease}
@@ -248,6 +252,7 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 [data-theme=day] .row.sel .rsel{background:#fff;border-color:#000;color:#000}
 /* 多选标记常驻 DOM，仅靠 class 显隐：进入 / 退出多选不重建网格、不改布局（§25） */
 #a-body:not(.selecting) .mark,#a-body:not(.selecting) .rsel{display:none}
+#a-body .folders .mark{display:none}   /* 首页文件夹横排不参与多选（§42） */
 .mark svg.i,.rsel svg.i{opacity:0}
 .sel .mark svg.i,.row.sel .rsel svg.i{opacity:1}
 #a-body.selecting .tacts{display:none}
@@ -394,6 +399,23 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .dlg .dbtns{display:grid;grid-template-columns:1fr 1fr;border-top:.5px solid var(--sep);margin-top:10px}
 .dlg .dbtns button{height:46px;font-size:16px}
 .dlg .dbtns button+button{border-left:.5px solid var(--sep);font-weight:650}
+/* 通用进度弹窗（§44） */
+.dlg.pgd{width:min(300px,100%);padding-top:18px}
+.pgd .pg-ic{position:relative;width:34px;height:34px;margin:0 auto 4px;display:grid;place-items:center;color:var(--text)}
+.pgd .pg-ic .spin{width:26px;height:26px;border-width:2.5px;transition:opacity .2s ease,transform .25s ease}
+.pgd .pg-ic svg.i{position:absolute;width:30px;height:30px;stroke-width:2.6;opacity:0;transform:scale(.5);transition:opacity .2s ease,transform .3s cubic-bezier(.2,.9,.3,1.3)}
+.pgd.is-done .pg-ic .spin{opacity:0;transform:scale(.6)}
+.pgd.is-done .pg-ic svg.i{opacity:1;transform:none}
+.pgd h4{padding-top:4px}
+.pgd .pg-file{min-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.pg-bar{height:6px;margin:14px 18px 0;border-radius:3px;background:var(--seg-bg);overflow:hidden}
+.pg-bar i{display:block;height:100%;border-radius:3px;background:var(--text);transform-origin:left center;transform:scaleX(0);transition:transform .25s linear}
+.pgd.is-done .pg-bar i{transition-duration:.3s;transition-timing-function:cubic-bezier(.2,.8,.2,1)}
+.pg-meta{display:flex;justify-content:space-between;padding:8px 18px 0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-height:26px}
+.dlg .dbtns.one{grid-template-columns:1fr}
+.dlg .dbtns.one button{font-weight:500}
+.pgd .dbtns{transition:opacity .2s ease}
+.pgd.is-done .dbtns,.pgd.is-fail .dbtns{opacity:0;pointer-events:none}
 /* 加入文件夹选择框（§31）：固定尺寸，列表框内滚动 */
 .dlg.fpk{width:min(340px,100%);height:min(500px, calc(var(--app-h,100vh) - var(--safe-top) - var(--safe-bottom) - 96px));display:flex;flex-direction:column;text-align:left}
 .fp-head{display:flex;align-items:center;gap:8px;padding:14px 10px 10px 18px;flex:0 0 auto}
@@ -408,6 +430,12 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .fp-sbox .field{margin-bottom:10px;opacity:0;transform:translateY(-6px);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
 .fpk.searching .fp-sbox{grid-template-rows:1fr}
 .fpk.searching .fp-sbox .field{opacity:1;transform:none}
+/* 弹窗内输入框必须清晰可辨（§41）：夜间 #2c2c2e 底 + 1px 浅描边；白天 #f2f2f7 底 + 1px 深描边 */
+.fpk .field{background:#f2f2f7;border:1px solid rgba(0,0,0,.12)}
+[data-theme=night] .fpk .field{background:#2c2c2e;border-color:rgba(255,255,255,.16)}
+.fpk .field:focus-within{border-color:var(--muted)}
+.fp-sbtn{position:relative}
+.fp-sbtn .sdot{bottom:0}
 .fp-list{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;border-top:.5px solid var(--sep)}
 .fp-row{width:100%;display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;text-align:left;position:relative}
 .fp-row+.fp-row::before{content:"";position:absolute;top:0;left:66px;right:0;border-top:.5px solid var(--sep)}
@@ -505,8 +533,8 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 /* 原地搜索面板：从顶栏下方展开 / 收起 */
 .nav .ibtn.on{background:var(--surface-2)}
 .nav-row.sub.icons{padding-right:8px}
-.sbox{position:absolute;left:0;right:0;top:100%;margin-top:.5px;background:var(--bar);z-index:var(--z-searchpanel);display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1),box-shadow .26s ease}
-.sbox.open{box-shadow:0 .5px 0 var(--sep)}
+.sbox{position:absolute;left:0;right:0;top:100%;margin-top:0;box-shadow:0 -1px 0 var(--bar);background:var(--bar);z-index:var(--z-searchpanel);display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1),box-shadow .26s ease}
+.sbox.open{box-shadow:0 -1px 0 var(--bar),0 .5px 0 var(--sep)}   /* 向上 1px 同色阴影盖住顶栏底边线与亚像素缝（§37） */
 .sbox>div{min-height:0;overflow:hidden}
 .sbox .search-wrap{opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
 .sbox.open{grid-template-rows:1fr}
@@ -903,13 +931,13 @@ function filteredItems(){
 
 /* 搜索时把匹配字符标红；转义后再包 <mark> */
 function hl(name){
-  const q=S.search?S.q.trim():"";
+  const q=S.q.trim();   /* 收起搜索框后仍保留关键词与高亮（§38） */
   if(!q) return esc(name);
   const i=name.toLowerCase().indexOf(q.toLowerCase());
   if(i<0) return esc(name);
   return esc(name.slice(0,i))+`<mark class="hl">${esc(name.slice(i,i+q.length))}</mark>`+esc(name.slice(i+q.length));
 }
-const showNames=()=>S.showNames||(S.search&&!!S.q.trim());
+const showNames=()=>S.showNames||!!S.q.trim();
 function tileHTML(it, selecting){
   const selected=S.sel.has(it.id);
   const mark=`<span class="mark">${ic("tick")}</span>`; /* 常驻，CSS 控制显隐 */
@@ -953,7 +981,7 @@ function render(opts){
     nav.innerHTML=`<div class="nav-row${S.folder?" sub icons":""}">
       ${S.folder?`<button type="button" class="back" data-act="back-folder" aria-label="返回">${ic("chevl")}</button>`:""}
       <div class="nav-title"><b>${esc(title)}</b>${count?`<small>${count}</small>`:""}</div>
-      ${selectable?`<button type="button" class="ibtn${S.search?" on":""}" data-act="toggle-search" aria-label="搜索" aria-pressed="${S.search}">${ic("search")}</button>`:""}
+      ${selectable?`<button type="button" class="ibtn${S.search?" on":""}" data-act="toggle-search" aria-label="搜索${S.q.trim()?"（正在筛选）":""}" aria-pressed="${S.search}">${ic("search")}<i class="sdot${S.q.trim()?" show":""}" aria-hidden="true"></i></button>`:""}
       ${selectable?`<button type="button" class="ibtn${S.select?" on":""}" data-act="toggle-select" aria-label="多选" aria-pressed="${S.select}">${ic("checks")}</button>`:""}
       ${ctx==="trash"&&TRASH.length?`<button type="button" class="ibtn danger" data-act="empty-trash" aria-label="清空回收站">${ic("brush")}</button>`:""}
       ${S.folder?`<button type="button" class="ibtn" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button>`:`<button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button>`}
@@ -1331,7 +1359,7 @@ function buildBody(ctx){
       html+=`<div class="folders">${fl.map(f=>fcardHTML(f,false)).join("")}</div>`;
     }
     if(list.length){
-      html+=`<div class="sec" data-flip="sec-r"><h3>${S.search&&S.q.trim()?"文件":"最近"}</h3></div>`;
+      html+=`<div class="sec" data-flip="sec-r"><h3>${S.q.trim()?"文件":"最近"}</h3></div>`;
       html+=`<div class="grid ${names}">${list.map(it=>tileHTML(it,S.select)).join("")}</div>`;
     }
     return html||empty;
@@ -1447,6 +1475,14 @@ function renderDoc(nav,body,bar,overlay){
 
 /* 原地搜索开 / 关（§25）：搜索面板是顶栏下方的覆盖层；打开时给内容区预留同样高度并在同一帧把 scrollTop 加上该高度，
    关闭时反向补偿 —— 网格在屏幕上的位置不变，不播放 FLIP。关闭时若有关键词，直接换回全部内容（无 FLIP）。 */
+function updSearchDot(){
+  const on=!!S.q.trim(), b=document.querySelector('#a-nav [data-act="toggle-search"]'); if(!b) return;
+  const d=b.querySelector(".sdot"); d&&d.classList.toggle("show",on);
+  b.setAttribute("aria-label","搜索"+(on?"（正在筛选）":""));
+}
+/* 多选 ↔ 搜索互斥且先后执行（§39） */
+function exitSelect(){ if(!S.select) return; S.select=false; S.sel=new Set(); applySelect(); }
+const SEQ={busy:false};
 function toggleSearch(){
   const body=document.getElementById("a-body");
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1463,8 +1499,9 @@ function toggleSearch(){
     });
     return;
   }
-  const H=sboxH(), hadQuery=!!(S.q.trim()||S.filter!=="all");
-  S.search=false; S.q=""; S.filter="all";
+  /* 收起：保留关键词与筛选结果（§38）；只有关键词为空时才把快捷筛选复位为「全部」，避免无角标的隐藏筛选 */
+  const H=sboxH(), hadQuery=!S.q.trim()&&S.filter!=="all";
+  S.search=false; if(!S.q.trim()) S.filter="all";
   const box=document.getElementById("sbox");
   const btn=document.querySelector('#a-nav [data-act="toggle-search"]');
   if(btn){ btn.classList.remove("on"); btn.setAttribute("aria-pressed","false"); }
@@ -1528,6 +1565,38 @@ function closePlusMenu(after){
 }
 
 /* 外观滑块：点选 = 只移动选中块（不重建设置页，过渡才能播放）；按住选中块拖动 = 跟手，松手吸附最近一项 */
+/* ===== 通用分段控件（§43）：页面里任何 .seg 都会被自动升级为滑块式——
+   插入 .seg-thumb、按 button.on 设置 --i / --n；选中项（.on）无论被谁改变，滑块都会平滑滑过去；
+   若整个控件被重新渲染，按上次位置（SEG_POS）从旧位置滑到新位置。 ===== */
+const SEG_POS={};
+function segKey(sg){ if(sg.id) return "#"+sg.id; if(sg.dataset.kind) return "k:"+sg.dataset.kind; const b=sg.querySelector("button"); return "a:"+(b?[...b.attributes].map(a=>a.name).filter(n=>n.startsWith("data-")).join(","):""); }
+function segSync(sg){
+  const bs=[...sg.querySelectorAll(":scope>button")]; if(!bs.length) return;
+  if(!sg.classList.contains("slide")) sg.classList.add("slide");
+  if(!sg.querySelector(":scope>.seg-thumb")){ const t=document.createElement("i"); t.className="seg-thumb"; t.setAttribute("aria-hidden","true"); sg.insertBefore(t,sg.firstChild); }
+  const i=Math.max(0,bs.findIndex(b=>b.classList.contains("on"))), key=segKey(sg);
+  sg.style.setProperty("--n",bs.length);
+  if(!sg._segInit){
+    sg._segInit=true;
+    const prev=SEG_POS[key];
+    if(prev!=null&&prev!==i&&prev<bs.length){ sg.style.setProperty("--i",prev); void sg.offsetWidth; }
+  }
+  if(sg.style.getPropertyValue("--i")!==String(i)) sg.style.setProperty("--i",i);
+  SEG_POS[key]=i;
+}
+function segScan(root){ (root.querySelectorAll?root:document).querySelectorAll(".seg").forEach(segSync); }
+(function(){
+  const mo=new MutationObserver(ms=>{
+    const set=new Set();
+    ms.forEach(m=>{
+      if(m.type==="attributes"){ const sg=m.target.parentElement; if(sg&&sg.classList.contains("seg")) set.add(sg); return; }
+      m.addedNodes.forEach(n=>{ if(n.nodeType!==1) return; if(n.classList.contains("seg")) set.add(n); n.querySelectorAll&&n.querySelectorAll(".seg").forEach(x=>set.add(x)); });
+    });
+    set.forEach(segSync);
+  });
+  const start=()=>{ segScan(document); mo.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]}); bindSegDrag(); };
+  if(document.body) start(); else document.addEventListener("DOMContentLoaded",start);
+})();
 function segSelect(sg,i){
   const bs=[...sg.querySelectorAll("button")]; if(!bs[i]) return;
   bs.forEach((b,k)=>b.classList.toggle("on",k===i));
@@ -1558,17 +1627,27 @@ function bindSegDrag(){
     if(!d.moved) return;
     const near=[...sg.querySelectorAll("button")].findIndex(b=>b.classList.contains("on"));
     sg.style.setProperty("--i",near);
-    requestAnimationFrame(()=>{ sg.classList.remove("dragging"); segSelect(sg,near); });
+    const nb=sg.querySelectorAll("button")[near];
+    SEG_POS[segKey(sg)]=near;
+    if(nb&&nb.dataset.themeSet!==undefined) requestAnimationFrame(()=>{ sg.classList.remove("dragging"); segSelect(sg,near); });
+    else { requestAnimationFrame(()=>sg.classList.remove("dragging")); SEGD.prog=true; nb&&nb.click(); SEGD.prog=false; }
     SEGD.swallow=Date.now();
   };
   document.addEventListener("pointerup",up,true); document.addEventListener("pointercancel",up,true);
-  document.addEventListener("click",e=>{ if(SEGD.swallow&&Date.now()-SEGD.swallow<350&&e.target.closest&&e.target.closest(".seg.slide")){ e.stopPropagation(); e.preventDefault(); SEGD.swallow=0; } },true);
+  document.addEventListener("click",e=>{ if(!SEGD.prog&&SEGD.swallow&&Date.now()-SEGD.swallow<350&&e.target.closest&&e.target.closest(".seg.slide")){ e.stopPropagation(); e.preventDefault(); SEGD.swallow=0; } },true);
 }
 function bindAlbum(){
   bindSegDrag();
   const root=document.getElementById("v-album");
   root.onclick=function(e){
     if(LP.suppress){ LP.suppress=false; e.preventDefault(); e.stopPropagation(); return; }
+    /* 多选中点文件区域以外的地方 = 退出多选（§42）。例外：顶栏按钮、多选栏、Tab 栏、＋菜单、弹窗 */
+    if(S.select&&!S.doc&&curCtx()!=="settings"){
+      const ctx=curCtx();
+      const inBody=e.target.closest("#a-body"), inNav=e.target.closest("#a-nav");
+      const isTile=e.target.closest(ctx==="folders"?"#a-body [data-folder]":ctx==="trash"?"#a-body [data-tid]":"#a-body .grid [data-id]");
+      if((inBody&&!isTile)||(inNav&&!e.target.closest("button,input,#sbox"))){ e.preventDefault(); e.stopPropagation(); exitSelect(); return; }
+    }
     const rt=e.target.closest("[data-ret]");
     if(rt){ S.retention=rt.dataset.ret; render(); return; }
     const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-sort],[data-folder],[data-id],[data-tid],[data-restore],[data-purge]");
@@ -1627,9 +1706,13 @@ function bindAlbum(){
     if(act==="back-sub"){ S.sub=null; render(); return; }
     if(act==="rename-folder"){ renameFolder(S.folder); return; }
     if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
-    if(act==="toggle-search"){ toggleSearch(); return; }
-    if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); refreshBody(); return; }
-    if(act==="toggle-select"){ S.select=!S.select; S.sel=new Set(); if(S.plus) closePlusMenu(); applySelect(); return; }
+    if(act==="toggle-search"){ if(SEQ.busy) return;
+      if(!S.search&&S.select){ SEQ.busy=true; exitSelect(); setTimeout(()=>{ SEQ.busy=false; if(!S.select&&!S.search) toggleSearch(); },250); return; }
+      toggleSearch(); return; }
+    if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); updSearchDot(); refreshBody(); return; }
+    if(act==="toggle-select"){ if(SEQ.busy) return;
+      if(!S.select&&S.search){ SEQ.busy=true; toggleSearch(); setTimeout(()=>{ SEQ.busy=false; if(!S.search&&!S.select){ S.select=true; S.sel=new Set(); applySelect(); } },320); return; }
+      S.select=!S.select; S.sel=new Set(); if(S.plus) closePlusMenu(); applySelect(); return; }
     if(act==="sel-rename"){
       if(S.sel.size!==1) return;
       const id=[...S.sel][0], ctx=curCtx();
@@ -1641,7 +1724,7 @@ function bindAlbum(){
       }
       renameSelected(id); return;
     }
-    if(act==="sel-export"){ toast("演示：功能占位"); return; }
+    if(act==="sel-export"){ if(S.sel.size) demoExport(); return; }
     if(act==="sel-addf"){ if(S.sel.size) openFolderPicker(); return; }
     if(act==="sel-out"){
       const n=S.sel.size, f=FOLDERS.find(x=>x.id===S.folder); if(!n||!f) return;
@@ -1656,7 +1739,7 @@ function bindAlbum(){
         dialog({title:`删除 ${n} 项？`, text:`将移入回收站，${S.retention==="never"?"可随时":S.retention+" 天内可"}恢复`, ok:"删除", danger:true, onOk:()=>deleteSelected()});
         return; }
       const n=S.sel.size;
-      dialog({title:`删除 ${n} 项？`, text:curCtx()==="folders"?"只删除文件夹，其中的文件不会被删除":`将移入回收站，${S.retention==="never"?"可随时":S.retention+" 天内可"}恢复`, ok:"删除", danger:true, onOk:()=>{ S.sel=new Set(); render(); toast("已删除"); }});
+      dialog({title:curCtx()==="folders"?`删除 ${n} 个文件夹？`:`删除 ${n} 项？`, text:curCtx()==="folders"?"只删除文件夹，里面的文件仍保留在首页和其他文件夹中，不会进回收站":`将移入回收站，${S.retention==="never"?"可随时":S.retention+" 天内可"}恢复`, ok:"删除", danger:true, onOk:()=>{ S.sel=new Set(); render(); toast("已删除"); }});
       return;
     }
     if(act==="sel-restore"){ TRASH=TRASH.filter(x=>!S.sel.has(x.id)); S.sel=new Set(); render(); toast("已恢复"); return; }
@@ -1683,7 +1766,7 @@ function bindAlbum(){
   bindDragSelect();
   const q=document.getElementById("q");
   if(q){
-    q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.classList.toggle("show",!!S.q); refreshBody(); };
+    q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.classList.toggle("show",!!S.q); updSearchDot(); refreshBody(); };
   }
 }
 
@@ -1765,7 +1848,7 @@ function openFolderPicker(){
   wrap.className="dlg-back fp-back";
   wrap.innerHTML=`<div class="dlg fpk" role="dialog" aria-modal="true" aria-labelledby="fp-t">
     <div class="fp-head"><div class="fp-tt"><h4 id="fp-t">加入文件夹</h4><small>已选 ${n} 项 · 可多选</small></div>
-      <button type="button" class="fp-sbtn" data-x="s" aria-label="搜索文件夹" aria-expanded="false">${ic("search")}</button></div>
+      <button type="button" class="fp-sbtn" data-x="s" aria-label="搜索文件夹" aria-expanded="false">${ic("search")}<i class="sdot" aria-hidden="true"></i></button></div>
     <div class="fp-sbox"><div><div class="field">${ic("search")}<input id="fp-q" type="search" placeholder="搜索文件夹" autocomplete="off" enterkeyhint="search"><button type="button" class="clr" data-x="clr" aria-label="清除"><span>${ic("x")}</span></button></div></div></div>
     <div class="fp-list" id="fp-list"></div>
     <div class="dbtns"><button type="button" data-x="c">取消</button><button type="button" data-x="o">确认</button></div></div>`;
@@ -1784,7 +1867,8 @@ function openFolderPicker(){
   draw();
   requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add("show")));
   const close=()=>{ wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),200); };
-  inp.oninput=()=>{ q=inp.value; clr.classList.toggle("show",!!q); draw(); };
+  const dot=()=>wrap.querySelector(".fp-sbtn .sdot").classList.toggle("show",!!q.trim());
+  inp.oninput=()=>{ q=inp.value; clr.classList.toggle("show",!!q); dot(); draw(); };
   wrap.onclick=(e)=>{
     if(e.target===wrap) return;   /* 点框外不关闭，避免误触丢失勾选 */
     const r=e.target.closest("[data-f]");
@@ -1794,8 +1878,9 @@ function openFolderPicker(){
     const b=e.target.closest("[data-x]"); if(!b) return;
     const x=b.dataset.x;
     if(x==="s"){ searchOpen=!searchOpen; wrap.querySelector(".fpk").classList.toggle("searching",searchOpen); b.classList.toggle("on",searchOpen); b.setAttribute("aria-expanded",String(searchOpen));
-      if(searchOpen) setTimeout(()=>inp.focus(),60); else { inp.value=""; q=""; clr.classList.remove("show"); inp.blur(); draw(); } return; }
-    if(x==="clr"){ inp.value=""; q=""; clr.classList.remove("show"); draw(); inp.focus(); return; }
+      if(searchOpen) setTimeout(()=>inp.focus(),60); else inp.blur();   /* 收起保留关键词与筛选结果（§41） */
+      return; }
+    if(x==="clr"){ inp.value=""; q=""; clr.classList.remove("show"); dot(); draw(); inp.focus(); return; }
     if(x==="new"){ dialog({title:"新建文件夹", input:{value:"", placeholder:"文件夹名称"}, ok:"创建", onOk:(v)=>{
         if(!v.trim()) return "名称不能为空";
         const f={id:"f"+Date.now(),n:v.trim(),c:0,s:[]}; FOLDERS.unshift(f); init[f.id]="none"; cur[f.id]="all"; draw(); list.scrollTop=0;
@@ -1815,6 +1900,64 @@ function openFolderPicker(){
     }
   };
   return wrap;
+}
+/* ===== 通用进度弹窗（§44）：上传 / 导入大视频、下载解密、导出等耗时操作必须复用 =====
+   const pg=progressDialog({title:"正在导出…", total:M, onCancel});
+   pg.set({index:n(1 起), name:"文件名", pct:0–100})；pg.done({title:"导出完成", text:"已导出 M 项"})；pg.fail(text)；pg.close() */
+function progressDialog(opts){
+  const layer=document.getElementById("layer");
+  const wrap=document.createElement("div");
+  wrap.className="dlg-back pg-back";
+  wrap.innerHTML=`<div class="dlg pgd" role="dialog" aria-modal="true" aria-labelledby="pg-t">
+    <div class="pg-ic" aria-hidden="true"><i class="spin"></i>${ic("tick")}</div>
+    <h4 id="pg-t">${esc(opts.title||"正在处理…")}</h4>
+    <p class="pg-file" aria-live="polite">&nbsp;</p>
+    <div class="pg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+    <div class="pg-meta"><span class="pg-n"></span><span class="pg-pct">0%</span></div>
+    <div class="dbtns one"><button type="button" data-x="c">${esc(opts.cancel||"取消")}</button></div></div>`;
+  layer.appendChild(wrap);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add("show")));
+  const $=sel=>wrap.querySelector(sel);
+  let closed=false;
+  const api={
+    set({index,name,pct}){
+      if(closed) return;
+      const p=Math.max(0,Math.min(100,pct||0));
+      if(name!=null) $(".pg-file").textContent=name;
+      if(index!=null&&opts.total) $(".pg-n").textContent=`第 ${index} / ${opts.total} 项`;
+      $(".pg-pct").textContent=Math.floor(p)+"%";
+      $(".pg-bar i").style.transform=`scaleX(${p/100})`;
+      $(".pg-bar").setAttribute("aria-valuenow",String(Math.floor(p)));
+    },
+    done({title,text,hold}={}){
+      if(closed) return;
+      api.set({pct:100});
+      wrap.querySelector(".pgd").classList.add("is-done");
+      $("#pg-t").textContent=title||"已完成"; $(".pg-file").textContent=text||"";
+      $(".pg-n").textContent=""; 
+      setTimeout(api.close, hold||1100);
+    },
+    fail(text){ if(closed) return; wrap.querySelector(".pgd").classList.add("is-fail"); $("#pg-t").textContent="未完成"; $(".pg-file").textContent=text||""; setTimeout(api.close,1400); },
+    close(){ if(closed) return; closed=true; wrap.classList.remove("show"); setTimeout(()=>wrap.remove(),240); }
+  };
+  wrap.onclick=e=>{ const b=e.target.closest("[data-x]"); if(b&&!closed){ opts.onCancel&&opts.onCancel(); api.close(); } };
+  return api;
+}
+/* 演示：多选栏「导出」——假进度（每项按假文件大小耗时 0.7–1.6s） */
+function demoExport(){
+  const ids=[...S.sel], items=ids.map(id=>findItem(id)||{name:id}).map(it=>({name:it.name+(it.doc?".txt":it.video?".mp4":".jpg"),w:it.video?1600:it.doc?700:1000}));
+  const total=items.length, sum=items.reduce((a,b)=>a+b.w,0);
+  let cancelled=false, done=0, k=0, t0=performance.now();
+  const pg=progressDialog({title:"正在导出…", total, onCancel:()=>{ cancelled=true; toast("已取消导出"); }});
+  const tick=()=>{
+    if(cancelled) return;
+    const now=performance.now(), el=now-t0, it=items[k];
+    const frac=Math.min(1,el/it.w);
+    pg.set({index:k+1, name:it.name, pct:(done+frac*it.w)/sum*100});
+    if(frac>=1){ done+=it.w; k++; t0=now; if(k>=total){ pg.done({title:"导出完成", text:`已导出 ${total} 项`}); return; } }
+    setTimeout(tick,120);
+  };
+  setTimeout(tick,200);
 }
 function prompt2(title, value, suffix, onOk){
   return dialog({title, input:{value, suffix}, ok:"确定", onOk});
