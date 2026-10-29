@@ -19,6 +19,10 @@
    相册主题为独立键 album-theme；旧版只有 calc-theme 时迁移为两者相同。 */
 (function(){try{var c=localStorage.getItem("calc-theme");if(c&&!localStorage.getItem("album-theme"))localStorage.setItem("album-theme",c);var p=c||"night";var t=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"night":"day"):p;document.documentElement.setAttribute("data-theme",t==="day"?"day":"night");}catch(e){}})();
 </script>
+<script>
+/* 仅供截图 / 调试：?safe=59,34 模拟 iPhone 主屏 App 的安全区（真机由 env(safe-area-inset-*) 提供）。正式应用不需要。 */
+(function(){try{var m=/[?&]safe=(\d+),(\d+)/.exec(location.search);if(m){var d=document.documentElement.style;d.setProperty("--safe-top",m[1]+"px");d.setProperty("--safe-bottom",m[2]+"px");}}catch(e){}})();
+</script>
 <style>
 :root{
   --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -27,7 +31,7 @@
 }
 [data-theme=night]{
   color-scheme:dark; --sb:rgba(255,255,255,.28);
-  --bg:#000000; --bar:rgba(10,10,10,.86); --surface:#1c1c1e; --surface-2:#2c2c2e;
+  --bg:#000000; --bar:#0a0a0a; --surface:#1c1c1e; --surface-2:#2c2c2e;
   --text:#ffffff; --muted:#8e8e93; --faint:#636366; --sep:rgba(255,255,255,.12);
   --accent:#ffffff; --accent-ink:#000000; --danger:#ff453a; --icon:#ffffff;
   --doc-bg:#1c1c1e; --doc-line:#3a3a3c; --scrim:rgba(0,0,0,.55); --sheet:#1c1c1e;
@@ -38,7 +42,7 @@
 }
 [data-theme=day]{
   color-scheme:light; --sb:rgba(0,0,0,.25);
-  --bg:#ffffff; --bar:rgba(255,255,255,.88); --surface:#f2f2f7; --surface-2:#e5e5ea;
+  --bg:#ffffff; --bar:#ffffff; --surface:#f2f2f7; --surface-2:#e5e5ea;
   --text:#000000; --muted:#8e8e93; --faint:#aeaeb2; --sep:rgba(0,0,0,.12);
   --accent:#000000; --accent-ink:#ffffff; --danger:#ff3b30; --icon:#000000;
   --doc-bg:#f2f2f7; --doc-line:#d1d1d6; --scrim:rgba(0,0,0,.25); --sheet:#ffffff;
@@ -56,7 +60,9 @@ input,textarea,[contenteditable],[contenteditable] *{-webkit-user-select:text;us
 ::-webkit-scrollbar-thumb{background:var(--sb);border-radius:2px}
 ::-webkit-scrollbar-corner{background:transparent}
 @supports not selector(::-webkit-scrollbar){*{scrollbar-width:thin;scrollbar-color:var(--sb) transparent}}
-html,body{height:100%;height:100dvh;max-height:100dvh;background:var(--bg);overflow:hidden}
+/* 全屏（iOS 主屏 App）：见 DESIGN-NOTES §23。不要用 100vh，也不要给视图加 max-height:100dvh 之类的上限。 */
+html,body{height:100%;background:var(--page);overflow:hidden;overscroll-behavior:none}
+@supports (-webkit-touch-callout:none){html,body{height:-webkit-fill-available}}
 body{color:var(--text);overflow:hidden;
   font-family:-apple-system,"SF Pro Text","PingFang SC","Noto Sans CJK SC","Noto Sans SC",sans-serif;
   -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
@@ -64,9 +70,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webki
 input{font:inherit;color:inherit}
 [hidden]{display:none!important}
 svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;display:block;flex:0 0 auto}
-.view{position:fixed;inset:0;width:100%;height:100%;height:100dvh;max-height:100dvh;background:var(--page);overflow:hidden;display:flex;flex-direction:column}
-.nav{position:relative;flex:0 0 auto;padding-top:var(--safe-top);padding-left:var(--safe-left);padding-right:var(--safe-right);background:var(--bar);
-  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);z-index:20;border-bottom:.5px solid var(--sep)}
+.view{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--page);overflow:hidden;display:flex;flex-direction:column}
+.nav{position:relative;flex:0 0 auto;padding-top:var(--safe-top);padding-left:var(--safe-left);padding-right:var(--safe-right);background:var(--bar);z-index:20;border-bottom:.5px solid var(--sep)}
 .nav-row{height:var(--nav-h);display:flex;align-items:center;padding:0 8px 0 16px}
 .nav-title{flex:1;display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap;overflow:hidden}
 .nav-title b{font-size:17px;font-weight:650;letter-spacing:-.2px}
@@ -94,10 +99,11 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .seg button{display:grid;place-items:center;font-size:13px;color:var(--muted);border-radius:7px;font-weight:500}
 .seg button.on{background:var(--seg-on);color:var(--text);font-weight:650;box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .scroll{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  padding-top:6px;padding-bottom:12px;
+  padding-top:6px;padding-bottom:calc(var(--tab-h) + var(--safe-bottom) + 44px + 12px);
   padding-left:var(--safe-left);padding-right:var(--safe-right)}
-.scroll.searching{padding-top:6px}
-.scroll.notab{padding-bottom:24px}
+/* 搜索面板为覆盖层；打开时预留其高度并同步补偿 scrollTop，网格不位移（§25） */
+.scroll.reserve{padding-top:calc(6px + var(--sbox-h,0px))}
+.scroll.notab{padding-bottom:calc(var(--safe-bottom) + 44px + 24px)}
 .sec{display:flex;align-items:center;justify-content:space-between;padding:8px 16px}
 .sec h3{font-size:13px;font-weight:650;color:var(--muted);letter-spacing:.2px}
 .sec button{font-size:13px;color:var(--text);display:flex;align-items:center;gap:1px}
@@ -138,9 +144,17 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .doc .mark{border-color:var(--faint);background:transparent}
 .cell.sel .mark{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 0 0 1px var(--ring),0 1px 3px rgba(0,0,0,.3)}
 .mark svg.i{width:14px;height:14px;stroke-width:3}
+/* 多选标记常驻 DOM，仅靠 class 显隐：进入 / 退出多选不重建网格、不改布局（§25） */
+#a-body:not(.selecting) .mark,#a-body:not(.selecting) .rsel{display:none}
+.mark svg.i,.rsel svg.i{opacity:0}
+.sel .mark svg.i,.row.sel .rsel svg.i{opacity:1}
+#a-body.selecting .tacts{display:none}
+.trow .rsel{margin-left:auto;margin-right:10px}
+/* 系统文件选择器的锚点：透明地覆盖在 + 上，使 iOS 菜单从 + 附近弹出 */
+.picker-input{position:fixed;width:38px;height:38px;opacity:0;pointer-events:none;z-index:-1}
 .empty-note{padding:48px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
-.tabbar{position:relative;flex:0 0 auto;height:calc(var(--tab-h) + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
-  background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(var(--tab-h) + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background:var(--bar);
   border-top:.5px solid var(--sep);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;z-index:20}
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:6px;gap:3px;color:var(--muted);font-size:10px;font-weight:550;position:relative}
 .tab svg.i{width:24px;height:24px}
@@ -275,6 +289,7 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .dangerbtn:disabled{opacity:.35;cursor:default}
 /* 文档页（备忘录风格）：浏览 / 编辑 同一页 */
 .notepage{padding-top:0}
+.scroll.notepage{padding-bottom:24px}
 .note{max-width:720px;margin:0 auto;padding:6px 20px 32px;font-size:17px;line-height:1.55;word-break:break-word}
 .note-meta{font-size:12px;color:var(--muted);text-align:center;padding:4px 0 12px;font-variant-numeric:tabular-nums}
 .note-title{font-size:26px;font-weight:700;line-height:1.3;letter-spacing:-.3px;outline:0;margin-bottom:6px}
@@ -340,15 +355,16 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 /* 原地搜索面板：从顶栏下方展开 / 收起 */
 .nav .ibtn.on{background:var(--surface-2)}
 .nav-row.sub.icons{padding-right:8px}
-.sbox{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1)}
+.sbox{position:absolute;left:0;right:0;top:100%;margin-top:.5px;background:var(--bar);z-index:19;display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.2,.8,.2,1),box-shadow .26s ease}
+.sbox.open{box-shadow:0 .5px 0 var(--sep)}
 .sbox>div{min-height:0;overflow:hidden}
 .sbox .search-wrap{opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1)}
 .sbox.open{grid-template-rows:1fr}
 .sbox.open .search-wrap{opacity:1;transform:none}
 /* 原地多选：选择条贴在 Tab 栏上方，不替换 Tab 栏 */
-.selbar{position:relative;flex:0 0 auto;height:44px;display:flex;align-items:center;gap:6px;padding:0 calc(var(--safe-right) + 8px) 0 calc(var(--safe-left) + 16px);
-  background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--sep);z-index:19}
-.selbar.last{height:calc(44px + var(--safe-bottom));padding-bottom:var(--safe-bottom)}
+.selbar{position:absolute;left:0;right:0;bottom:calc(var(--tab-h) + var(--safe-bottom));height:44px;display:flex;align-items:center;gap:6px;padding:0 calc(var(--safe-right) + 8px) 0 calc(var(--safe-left) + 16px);
+  background:var(--bar);border-top:.5px solid var(--sep);z-index:19}
+.selbar.last{bottom:0;height:calc(44px + var(--safe-bottom));padding-bottom:var(--safe-bottom)}
 .selbar .sc{font-size:14px;color:var(--muted);white-space:nowrap}
 .selbar .sc b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
 .sacts{margin-left:auto;display:flex;gap:2px}
@@ -636,7 +652,7 @@ let TRASH=[
   {id:"t3",name:"误删视频.mp4",days:28,seed:41,kind:"land",video:true},
 ];
 
-const S={
+const S={picking:false,
   view:"calc",
   tab:"photos",
   search:false, q:"", filter:"all",
@@ -692,6 +708,7 @@ function openAlbum(){
   render();
 }
 function lock(){
+  endPicker();
   S.view="calc"; S.plus=false; S.select=false; S.sel=new Set(); S.search=false; S.folder=null; S.sub=null; S.doc=null;
   showView();
 }
@@ -727,8 +744,8 @@ function hl(name){
 const showNames=()=>S.showNames||(S.search&&!!S.q.trim());
 function tileHTML(it, selecting){
   const selected=S.sel.has(it.id);
-  const mark=selecting?`<span class="mark">${selected?ic("tick"):""}</span>`:"";
-  const selc=selecting&&selected?" sel":"";
+  const mark=`<span class="mark">${ic("tick")}</span>`; /* 常驻，CSS 控制显隐 */
+  const selc=S.select&&selected?" sel":"";
   if(it.doc){
     return `<button type="button" class="cell${selc}" data-id="${it.id}"><div class="tile doc"><div class="dt">${hl(it.name)}</div><div class="dl" style="width:92%"></div><div class="dl" style="width:78%"></div><div class="dl" style="width:85%"></div><div class="dl" style="width:50%"></div><span class="dic">${ic("filetext")}</span>${mark}</div>${showNames()?`<div class="tname">${hl(it.name)}</div>`:""}</button>`;
   }
@@ -753,6 +770,7 @@ function render(opts){
   const sb=document.getElementById("a-sel");
   const root=document.getElementById("v-album");
   sb.hidden=true; root.classList.remove("selmode");
+  body.style.removeProperty("--sbox-h");
 
   if(S.doc){ renderDoc(nav,body,bar,overlay); bindAlbum(); return; }
 
@@ -783,11 +801,33 @@ function render(opts){
   }
 
   /* ---- 内容 ---- */
-  body.className="scroll"+(S.folder?" notab":"");
+  const sOpen=!!document.querySelector("#sbox.open");
+  body.className="scroll"+(S.folder?" notab":"")+(S.select&&ctx!=="settings"?" selecting":"")+(sOpen?" reserve":"");
+  if(sOpen) body.style.setProperty("--sbox-h", sboxH()+"px");
   if(!(opts&&opts.keepBody)) body.innerHTML=buildBody(ctx);
 
-  /* ---- 原地多选的选择条 ---- */
-  if(S.select&&ctx!=="settings"){
+  renderSelbar();
+
+  /* ---- Tab 栏（始终保留） ---- */
+  if(!S.folder){
+    bar.className="tabbar";
+    const trashCount=TRASH.length;
+    bar.innerHTML=`
+      <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos">${ic("house")}<span>首页</span></button>
+      <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders">${ic("folder")}<span>文件夹</span></button>
+      <button type="button" class="tab" data-act="plus" aria-label="添加" aria-expanded="${S.plus||S.picking?"true":"false"}"><span class="fab${S.picking?" open":""}">${ic("plus")}</span></button>
+      <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash">${ic("trash")}<span>回收站</span>${trashCount?`<span class="badge">${trashCount}</span>`:""}</button>
+      <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings">${ic("gear")}<span>设置</span></button>`;
+  }
+  renderPlusLayer(opts, overlay, bar);
+}
+/* 原地多选的选择条（覆盖在 Tab 栏上方，不参与布局） */
+function renderSelbar(){
+  const sb=document.getElementById("a-sel");
+  const root=document.getElementById("v-album");
+  const ctx=curCtx();
+  sb.hidden=true; root.classList.remove("selmode");
+  if(S.select&&ctx!=="settings"&&!S.doc){
     const n=S.sel.size, dis=n?"":"disabled";
     const b=(act,icon,label,danger,d)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${d===undefined?dis:d}>${ic(icon)}<span>${label}</span></button>`;
     const ren=b("sel-rename","pen","重命名",0,n===1?"":"disabled");
@@ -798,19 +838,23 @@ function render(opts){
     sb.className="selbar"+(S.folder?" last":"");
     sb.hidden=false; root.classList.add("selmode");
   }
-
-  /* ---- Tab 栏（始终保留） ---- */
-  if(!S.folder){
-    bar.className="tabbar";
-    const trashCount=TRASH.length;
-    bar.innerHTML=`
-      <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos">${ic("house")}<span>首页</span></button>
-      <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders">${ic("folder")}<span>文件夹</span></button>
-      <button type="button" class="tab" data-act="plus" aria-label="添加"><span class="fab">${ic("plus")}</span></button>
-      <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash">${ic("trash")}<span>回收站</span>${trashCount?`<span class="badge">${trashCount}</span>`:""}</button>
-      <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings">${ic("gear")}<span>设置</span></button>`;
-  }
-
+}
+/* 进入 / 退出多选：只切 class、更新顶栏按钮与选择条，不重建内容、不播放 FLIP（§25） */
+function applySelect(){
+  const body=document.getElementById("a-body");
+  const ctx=curCtx();
+  body.classList.toggle("selecting", S.select&&ctx!=="settings");
+  body.querySelectorAll(".sel").forEach(el=>el.classList.remove("sel"));
+  S.sel.forEach(k=>markSel(k,true));
+  const b=document.querySelector('#a-nav [data-act="toggle-select"]');
+  if(b){ b.classList.toggle("on",S.select); b.setAttribute("aria-pressed",String(S.select)); }
+  renderSelbar();
+}
+function markSel(k,on){
+  document.querySelectorAll(`#a-body [data-id="${k}"],#a-body [data-folder="${k}"],#a-body [data-tid="${k}"]`).forEach(el=>el.classList.toggle("sel",on));
+}
+function sboxH(){ const w=document.querySelector("#sbox .search-wrap"); return w?w.offsetHeight:0; }
+function renderPlusLayer(opts, overlay, bar){
     if(S.plus){
     if(!overlay.dataset.plusBuilt){
       overlay.innerHTML=`<div class="scrim" data-act="close-plus"></div>
@@ -930,7 +974,7 @@ function bindLongPress(root){
     LP.timer=setTimeout(()=>{
       LP.timer=0; LP.suppress=true;
       try{ navigator.vibrate&&navigator.vibrate(8); }catch(_){}
-      S.select=true; S.sel=new Set([key]); S.plus=false; render();
+      S.select=true; S.sel=new Set([key]); if(S.plus) closePlusMenu(); applySelect();
       const sel=`[data-id="${key}"],[data-folder="${key}"],[data-tid="${key}"]`;
       const n=document.querySelector("#a-body "+sel.split(",").join(",#a-body "));
       if(n&&!matchMedia("(prefers-reduced-motion: reduce)").matches) n.animate([{transform:"scale(1)"},{transform:"scale(.93)"},{transform:"scale(1)"}],{duration:220,easing:"ease-out"});
@@ -943,7 +987,7 @@ function bindLongPress(root){
   root.oncontextmenu=function(e){ if(e.target.closest(".cell,.fcard,.trow")) e.preventDefault(); };
 }
 function resetModes(){ S.search=false; S.searchAnim=false; S.q=""; S.filter="all"; S.select=false; S.sel=new Set(); }
-function toggleSel(id){ if(S.sel.has(id)) S.sel.delete(id); else S.sel.add(id); render(); }
+function toggleSel(id){ const on=!S.sel.has(id); if(on) S.sel.add(id); else S.sel.delete(id); markSel(id,on); renderSelbar(); }
 function retLabel(k){ return k==="never"?"永不自动删除":k+" 天"; }
 /* FLIP：只用 transform / opacity；只动画视口内及附近的元素 */
 const FLIP_SEL="[data-flip],[data-id],[data-folder],[data-tid]";
@@ -1004,8 +1048,8 @@ function segFor(ctx){
   return `<div class="seg" id="filter-seg">${opts.map(([k,l])=>segBtn("filter",k,l,S.filter)).join("")}</div>`;
 }
 function fcardHTML(f, selecting){
-  const sel=selecting&&S.sel.has(f.id);
-  const mark=selecting?`<span class="mark">${sel?ic("tick"):""}</span>`:"";
+  const sel=S.select&&curCtx()==="folders"&&S.sel.has(f.id);
+  const mark=`<span class="mark">${ic("tick")}</span>`;
   return `<button type="button" class="fcard${sel?" sel":""}" data-folder="${f.id}"><div class="fwrap">${folderCover(f)}${mark}</div><div class="fname">${hl(f.n)}</div><div class="fcount">${f.c} 项</div></button>`;
 }
 /* 原型一次性渲染全部演示项；正式应用按 DESIGN-NOTES §18 分批解密 / 渲染（每批约 20 项，哨兵触发下一批）。 */
@@ -1044,9 +1088,9 @@ function buildBody(ctx){
     return `<div class="page"><div class="group">${list.map(t=>{
       const thumb=t.doc?`<div class="tthumb">${ic("filetext")}</div>`:`<div class="tthumb" style="background-image:${photo(t.seed||1,t.kind||"land")}"></div>`;
       const sel=S.select&&S.sel.has(t.id);
-      const lead=S.select?`<span class="rsel">${sel?ic("tick"):""}</span>`:"";
-      const acts=S.select?"":`<div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div>`;
-      return `<div class="row trow${sel?" sel":""}" data-tid="${t.id}">${lead}${thumb}<div class="tmeta"><b>${hl(t.name)}</b><small>${t.days} 天后删除</small></div>${acts}</div>`;
+      const lead=`<span class="rsel">${ic("tick")}</span>`; /* 多选圆圈放在右侧（原「恢复 / 删除」位置），进入多选时缩略图与名称不移动 */
+      const acts=`<div class="tacts"><button type="button" class="txtbtn" data-restore="${t.id}">恢复</button><button type="button" class="txtbtn danger" data-purge="${t.id}">删除</button></div>`;
+      return `<div class="row trow${sel?" sel":""}" data-tid="${t.id}">${thumb}<div class="tmeta"><b>${hl(t.name)}</b><small>${t.days} 天后删除</small></div>${acts}${lead}</div>`;
     }).join("")}</div><p class="gf">项目将在剩余天数后被永久删除。本原型仅演示界面。</p></div>`;
   }
   return settingsBody();
@@ -1136,6 +1180,67 @@ function renderDoc(nav,body,bar,overlay){
   }
 }
 
+/* 原地搜索开 / 关（§25）：搜索面板是顶栏下方的覆盖层；打开时给内容区预留同样高度并在同一帧把 scrollTop 加上该高度，
+   关闭时反向补偿 —— 网格在屏幕上的位置不变，不播放 FLIP。关闭时若有关键词，直接换回全部内容（无 FLIP）。 */
+function toggleSearch(){
+  const body=document.getElementById("a-body");
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(S.plus) closePlusMenu();
+  if(!S.search){
+    S.search=true; S.searchAnim=true; render({keepBody:true}); S.searchAnim=false;
+    const box=document.getElementById("sbox"), H=sboxH();
+    requestAnimationFrame(()=>{
+      if(!S.search) return;
+      box.classList.add("open");
+      body.style.setProperty("--sbox-h",H+"px");
+      const st=body.scrollTop; body.classList.add("reserve"); body.scrollTop=st+H;
+      const q=document.getElementById("q"); q&&q.focus({preventScroll:true});
+    });
+    return;
+  }
+  const H=sboxH(), hadQuery=!!(S.q.trim()||S.filter!=="all");
+  S.search=false; S.q=""; S.filter="all";
+  const box=document.getElementById("sbox");
+  const btn=document.querySelector('#a-nav [data-act="toggle-search"]');
+  if(btn){ btn.classList.remove("on"); btn.setAttribute("aria-pressed","false"); }
+  const q=document.getElementById("q"); q&&q.blur();
+  if(hadQuery){ body.innerHTML=buildBody(curCtx()); body.scrollTop=H; if(S.select) S.sel.forEach(k=>markSel(k,true)); }
+  box&&box.classList.remove("open");
+  const st=body.scrollTop, shift=Math.max(0,H-st);
+  body.classList.remove("reserve"); body.style.removeProperty("--sbox-h"); body.scrollTop=Math.max(0,st-H);
+  /* 只有在列表顶部（scrollTop < 面板高度）时，内容会随面板收起同步上移，不是 FLIP */
+  if(shift&&!reduce) [...body.children].forEach(el=>el.animate([{transform:`translateY(${shift}px)`},{transform:"none"}],{duration:260,easing:"cubic-bezier(.2,.8,.2,1)"}));
+  setTimeout(()=>{ if(!S.search&&S.view==="album"&&!S.doc) render({keepBody:true}); },300);
+}
+
+/* 「＋ › 添加照片」打开系统选取器（§24）：选取器打开期间 + 保持按下（×）状态，
+   直到 change / cancel、window focus / visibilitychange 回来或用户点任意处才复原。 */
+const PICK={openedAt:0,endedAt:0,input:null,off:null};
+function startPicker(){
+  const fab=document.querySelector("#a-bar .fab");
+  if(PICK.input) PICK.input.remove();
+  const inp=document.createElement("input");
+  inp.type="file"; inp.accept="image/*,video/*"; inp.multiple=true; inp.className="picker-input"; inp.tabIndex=-1;
+  if(fab){ const r=fab.getBoundingClientRect(); inp.style.left=r.left+"px"; inp.style.top=r.top+"px"; }
+  document.body.appendChild(inp); PICK.input=inp;
+  S.picking=true; PICK.openedAt=Date.now();
+  const t=document.querySelector('#a-bar [data-act="plus"]'); t&&t.setAttribute("aria-expanded","true");
+  const later=()=>{ if(Date.now()-PICK.openedAt>400) setTimeout(endPicker,350); };
+  const onVis=()=>{ if(document.visibilityState==="visible") later(); };
+  const onDown=(e)=>{ if(Date.now()-PICK.openedAt<300) return; if(e.target.closest&&e.target.closest('[data-act="plus"]')) PICK.endedAt=Date.now(); endPicker(); };
+  inp.addEventListener("change",()=>{ const n=inp.files?inp.files.length:0; endPicker(); if(n) toast(`已选择 ${n} 个文件`); });
+  inp.addEventListener("cancel",()=>endPicker());
+  window.addEventListener("focus",later); document.addEventListener("visibilitychange",onVis); document.addEventListener("pointerdown",onDown,true);
+  PICK.off=()=>{ window.removeEventListener("focus",later); document.removeEventListener("visibilitychange",onVis); document.removeEventListener("pointerdown",onDown,true); };
+  inp.click();        /* 必须在点击手势内同步调用 */
+  closePlusMenu();    /* 菜单项收起，但 + 保持按下 */
+}
+function endPicker(){
+  if(!S.picking) return;
+  S.picking=false; PICK.off&&PICK.off(); PICK.off=null;
+  const fab=document.querySelector("#a-bar .fab"); fab&&fab.classList.remove("open");
+  const t=document.querySelector('#a-bar [data-act="plus"]'); t&&t.setAttribute("aria-expanded","false");
+}
 function closePlusMenu(after){
   const overlay=document.getElementById("a-overlay");
   const fab=document.querySelector("#a-bar .fab");
@@ -1144,7 +1249,7 @@ function closePlusMenu(after){
   if(!overlay||!overlay.dataset.plusBuilt){ overlay&&(overlay.innerHTML=""); after&&after(); render(); return; }
   overlay.classList.add("closing");
   overlay.classList.remove("is-open");
-  fab&&fab.classList.remove("open");
+  if(!S.picking) fab&&fab.classList.remove("open");
   const done=()=>{
     overlay.innerHTML="";
     delete overlay.dataset.plusBuilt;
@@ -1213,20 +1318,9 @@ function bindAlbum(){
     if(act==="back-sub"){ S.sub=null; render(); return; }
     if(act==="rename-folder"){ renameFolder(S.folder); return; }
     if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
-    if(act==="toggle-search"){
-      S.search=!S.search; S.plus=false;
-      let keep=false;
-      if(!S.search&&(S.q||S.filter!=="all")){ S.q=""; S.filter="all"; refreshBody(); keep=true; }
-      S.searchAnim=true; render({keepBody:keep});
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        S.searchAnim=false;
-        const box=document.getElementById("sbox"); if(box) box.classList.toggle("open",S.search);
-        if(S.search){ const q=document.getElementById("q"); q&&q.focus({preventScroll:true}); }
-      }));
-      return;
-    }
+    if(act==="toggle-search"){ toggleSearch(); return; }
     if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); refreshBody(); return; }
-    if(act==="toggle-select"){ S.select=!S.select; S.sel=new Set(); S.plus=false; render(); return; }
+    if(act==="toggle-select"){ S.select=!S.select; S.sel=new Set(); if(S.plus) closePlusMenu(); applySelect(); return; }
     if(act==="sel-rename"){
       if(S.sel.size!==1) return;
       const id=[...S.sel][0], ctx=curCtx();
@@ -1251,7 +1345,8 @@ function bindAlbum(){
       dialog({title:`永久删除 ${n} 项？`, text:"删除后无法恢复", ok:"删除", danger:true, onOk:()=>{ TRASH=TRASH.filter(x=>!S.sel.has(x.id)); S.sel=new Set(); render(); toast("已删除"); }});
       return;
     }
-    if(act==="plus"){ if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
+    if(act==="plus"){ if(S.picking){ endPicker(); return; } if(Date.now()-PICK.endedAt<400) return; if(S.plus) closePlusMenu(); else { S.plus=true; render(); } return; }
+    if(act==="add-photo"){ startPicker(); return; }
     if(act==="close-plus"){ closePlusMenu(); return; }
     if(act==="add-photo"||act==="add-doc"||act==="add-folder"){ closePlusMenu(()=>{
       if(act==="add-doc"){ S.doc={id:null,title:"",isNew:true,mode:"edit",sheet:false}; }
