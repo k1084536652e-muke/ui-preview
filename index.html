@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261029024155"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261029032527"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -37,7 +37,7 @@
   var mode="auto"; try{mode=localStorage.getItem("vp-mode")||"auto";}catch(e){}
   if(sa) d.classList.add("standalone");
   try{ if(localStorage.getItem("sb-plate")==="off") d.classList.add("no-plate"); }catch(e){}
-  try{ if(localStorage.getItem("top-variant-v")!=="2"){ localStorage.removeItem("top-variant"); localStorage.removeItem("top-extra"); localStorage.removeItem("sb-plate"); d.classList.remove("no-plate"); localStorage.setItem("top-variant-v","2"); } }catch(e){}
+  try{ if(localStorage.getItem("top-variant-v")!=="3"){ localStorage.removeItem("top-variant"); localStorage.removeItem("top-extra"); localStorage.removeItem("sb-plate"); d.classList.remove("no-plate"); localStorage.setItem("top-variant-v","3"); } }catch(e){}
   try{ var tv=localStorage.getItem("top-variant")||"5"; d.classList.add("tv-"+tv); var tx=localStorage.getItem("top-extra"); if(tx) d.style.setProperty("--top-extra",tx+"px"); }catch(e){}
   function apply(){
     if(!sa||mode==="off"){ d.classList.remove("sa-fix"); d.style.removeProperty("--app-h"); return; }
@@ -64,7 +64,7 @@
 :root{
   --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
   --safe-left:env(safe-area-inset-left,0px); --safe-right:env(safe-area-inset-right,0px);
-  --nav-h:44px; --tab-h:52px; --r-tile:3px;
+  --nav-h:44px; --tab-h:48px; --r-tile:3px;
 }
 [data-theme=night]{
   color-scheme:dark; --sb:rgba(255,255,255,.28);
@@ -133,15 +133,11 @@ html.standalone.tv-7 #sbplate,html.standalone.tv-8 #sbplate{pointer-events:auto}
 /* V8：整屏视图不再是 fixed（改 absolute，高度仍为 --app-h），让状态栏板成为顶部唯一的 fixed 元素 */
 html.standalone.tv-8 .view{position:absolute}
 /* V5：顶栏内容整体下移，避开系统模糊带 */
-html.standalone{--top-extra:12px}
-html.standalone.tv-5{--grow:calc(var(--top-extra) - min(6px, var(--top-extra) / 2))}   /* 顶栏实际增高 = 下移量 − 行高收紧量 */
+html.standalone{--top-extra:20px}   /* 定案：真机 20px 完全离开系统模糊带（18px 仍隐约） */
+/* V5 定案布局：整页一起下移——顶栏内容（标题+图标）下移 top-extra，顶栏纯色底与底边线随之延伸；
+   顶栏下方的间距保持 ui-final-v1 原值（不再扣回），网格区域相应少显示一点（可滚动） */
 html.standalone.tv-5 .view>.nav{padding-top:calc(var(--safe-top) + var(--top-extra))}
-html.standalone.tv-5 .view>.nav>.nav-row{height:calc(var(--nav-h) - min(6px, var(--top-extra) / 2))}   /* 标题行收紧最多 6px，标题与图标一起下移 */
-/* 把增高量从顶栏下方的空隙里扣回来，整体不显得被往下推 */
-html.standalone.tv-5 .scroll{padding-top:max(0px, calc(6px - var(--grow)))}
-html.standalone.tv-5 .scroll.reserve{padding-top:calc(max(0px, calc(6px - var(--grow))) + var(--sbox-h, 0px))}
-html.standalone.tv-5 #a-body>.sec:first-child{padding-top:max(2px, calc(8px - max(0px, calc(var(--grow) - 6px))))}
-html.standalone.tv-5 .calc{padding-top:max(2px, calc(12px - var(--grow)))}
+html.standalone.tv-5 .viewer .vbar{padding-top:calc(var(--safe-top) + var(--top-extra) + 6px)}
 /* 视口诊断面板（?vp=1 或连点标题 5 次） */
 #vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 150px);max-height:calc(var(--app-h, 100vh) - var(--safe-top) - 150px - var(--safe-bottom) - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
   font:12px/1.45 ui-monospace,Menlo,monospace;box-shadow:0 8px 30px rgba(0,0,0,.4);-webkit-user-select:text;user-select:text}
@@ -248,15 +244,23 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .tabbar{position:absolute;left:0;right:0;bottom:0;height:calc(var(--tab-h) + var(--safe-bottom));padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   background:var(--bar);
   border-top:.5px solid var(--sep);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;z-index:20}
-.tab{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:6px;gap:3px;color:var(--muted);font-size:10px;font-weight:550;position:relative}
+/* Tab 栏仅图标（参考 YouTube App）：高 48px（整格可点，≥44px），不显示文字，aria-label 保留；
+   当前页 = 文字色 + 实心图标，其它 = 灰色线框 */
+.tab{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);position:relative}
+.tab svg.i path,.tab svg.i circle,.tab svg.i line{transition:fill .15s ease,stroke .15s ease}
+.tabbar .tab.on svg.i{stroke-width:2.1}
+.tabbar .tab.on svg.i path{fill:currentColor}
+.tabbar .tab.on svg.i line,.tabbar .tab.on svg.i circle{stroke:var(--bar);fill:var(--bar)}
+.tabbar .tab.on[data-tab=photos] svg.i path:first-child{fill:var(--bar);stroke:var(--bar)}
+.tabbar .tab.on[data-tab=trash] svg.i path:first-child{fill:none}
 .tab svg.i{width:24px;height:24px}
 .tab.on{color:var(--text)}
 .tab:disabled{opacity:.35;cursor:default}
 .actionbar .tab{color:var(--icon)}
 .actionbar .tab.danger{color:var(--danger)}
-.badge{position:absolute;top:3px;left:50%;margin-left:7px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
+.badge{position:absolute;top:calc(50% - 19px);left:50%;margin-left:7px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
 /* 「＋」：38px（原 46px），颜色逻辑同其它 Tab：平时灰色，菜单打开/按下时为文字色 */
-.fab{width:38px;height:38px;border-radius:19px;background:var(--muted);color:var(--bg);display:grid;place-items:center;margin-top:1px;transition:background .2s ease,color .2s ease,border-color .2s ease}
+.fab{width:38px;height:38px;border-radius:19px;background:var(--muted);color:var(--bg);display:grid;place-items:center;transition:background .2s ease,color .2s ease,border-color .2s ease}
 .fab svg.i{width:22px;height:22px;stroke-width:2.2;transition:transform .2s ease}
 .fab.open svg.i{transform:rotate(45deg)}
 .fab.open,.tab:active .fab{background:var(--text)}
@@ -908,11 +912,11 @@ function render(opts){
     bar.className="tabbar";
     const trashCount=TRASH.length;
     bar.innerHTML=`
-      <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos">${ic("house")}<span>首页</span></button>
-      <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders">${ic("folder")}<span>文件夹</span></button>
+      <button type="button" class="tab ${S.tab==="photos"?"on":""}" data-tab="photos" aria-label="首页" ${S.tab==="photos"?'aria-current="page"':""}>${ic("house")}</button>
+      <button type="button" class="tab ${S.tab==="folders"?"on":""}" data-tab="folders" aria-label="文件夹" ${S.tab==="folders"?'aria-current="page"':""}>${ic("folder")}</button>
       <button type="button" class="tab" data-act="plus" aria-label="添加" aria-expanded="${S.plus||S.picking?"true":"false"}"><span class="fab${S.picking?" open":""}">${ic("plus")}</span></button>
-      <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash">${ic("trash")}<span>回收站</span>${trashCount?`<span class="badge">${trashCount}</span>`:""}</button>
-      <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings">${ic("gear")}<span>设置</span></button>`;
+      <button type="button" class="tab ${S.tab==="trash"?"on":""}" data-tab="trash" aria-label="回收站${trashCount?`（${trashCount}）`:""}" ${S.tab==="trash"?'aria-current="page"':""}>${ic("trash")}${trashCount?`<span class="badge" aria-hidden="true">${trashCount}</span>`:""}</button>
+      <button type="button" class="tab ${S.tab==="settings"?"on":""}" data-tab="settings" aria-label="设置" ${S.tab==="settings"?'aria-current="page"':""}>${ic("gear")}</button>`;
   }
   renderPlusLayer(opts, overlay, bar);
 }
@@ -1739,7 +1743,7 @@ showView();
       "y=2 处元素(上→下): "+document.elementsFromPoint(innerWidth/2,2).filter(e=>e.id!=="vpdiag"&&!e.closest("#vpdiag")).slice(0,4).map(e=>{ const cs=getComputedStyle(e), r=e.getBoundingClientRect(); return (e.tagName.toLowerCase()+(e.id?"#"+e.id:"")+(e.classList.length?"."+[...e.classList].join("."):""))+"["+cs.position+" top"+px(r.top)+" h"+px(r.height)+" "+cs.backgroundColor+"]"; }).join(" › "),
       "y=2 覆盖的 fixed/sticky(含不可点): "+[...document.querySelectorAll("body *")].filter(e=>!e.closest("#vpdiag")&&/fixed|sticky/.test(getComputedStyle(e).position)&&getComputedStyle(e).display!=="none").filter(e=>{const r=e.getBoundingClientRect();return r.top<=2&&r.bottom>2&&r.width>0;}).map(e=>{const cs=getComputedStyle(e),r=e.getBoundingClientRect();return (e.id||e.className||e.tagName)+"["+cs.position+" z"+cs.zIndex+" h"+px(r.height)+" pe:"+cs.pointerEvents+" "+cs.backgroundColor+"]";}).join(" › "),
       "首个 fixed/sticky: "+(function(){ const e=document.elementsFromPoint(innerWidth/2,2).find(x=>!x.closest("#vpdiag")&&/fixed|sticky/.test(getComputedStyle(x).position)); if(!e) return "无"; const cs=getComputedStyle(e), r=e.getBoundingClientRect(); return (e.id||e.className||e.tagName)+" "+cs.position+" top"+px(r.top)+" h"+px(r.height)+" w"+px(r.width)+" "+cs.backgroundColor; })(),
-      "顶部变体: V"+(localStorage.getItem("top-variant")||"5")+"   下移量(V5): "+(localStorage.getItem("top-extra")||"12")+"px",
+      "顶部变体: V"+(localStorage.getItem("top-variant")||"5")+"   下移量(V5): "+(localStorage.getItem("top-extra")||"20")+"px",
       "版本戳: "+((document.querySelector('meta[name="build"]')||{}).content||"?"),
       "iOS "+(ios||"?").replace(/_/g,".")+"  Safari "+(ver||"?"),
       ua.slice(0,120)
@@ -1755,7 +1759,7 @@ showView();
     d.classList.toggle("no-plate",!plate);
     try{ localStorage.setItem("top-variant",k); localStorage.setItem("sb-plate",plate?"on":"off"); }catch(_){}
   }
-  function getTX(){ return +(localStorage.getItem("top-extra")||12); }
+  function getTX(){ return +(localStorage.getItem("top-extra")||20); }
   function setTX(v){ v=Math.max(0,Math.min(40,v)); document.documentElement.style.setProperty("--top-extra",v+"px"); try{localStorage.setItem("top-extra",String(v));}catch(_){}
     const t=document.getElementById("txval"); if(t) t.textContent=v; const r=document.getElementById("txrange"); if(r&&+r.value!==v) r.value=v; }
   function render(){
