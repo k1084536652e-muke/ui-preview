@@ -36,6 +36,7 @@
   var mode="auto"; try{mode=localStorage.getItem("vp-mode")||"auto";}catch(e){}
   if(sa) d.classList.add("standalone");
   try{ if(localStorage.getItem("sb-plate")==="off") d.classList.add("no-plate"); }catch(e){}
+  try{ var tv=localStorage.getItem("top-variant")||"0"; d.classList.add("tv-"+tv); var tx=localStorage.getItem("top-extra"); if(tx) d.style.setProperty("--top-extra",tx+"px"); }catch(e){}
   function apply(){
     if(!sa||mode==="off"){ d.classList.remove("sa-fix"); d.style.removeProperty("--app-h"); return; }
     d.classList.add("sa-fix");
@@ -112,13 +113,34 @@ body:has(.viewer) #sbplate{background:#000}                                 /* �
 body:has(.dlg-back.show) #sbplate{background:color-mix(in srgb, var(--bar), #000 45%)} /* 对话框遮罩同等变暗 */
 body:has(.viewer):has(.dlg-back.show) #sbplate{background:color-mix(in srgb, #000, #000 45%)}
 html.no-plate #sbplate{display:none}
+/* ===== 顶部模糊试验变体（仅 standalone 生效；诊断面板切换，localStorage top-variant / top-extra）===== */
+.topback{display:none}
+/* V1 / V6：顶栏自身 position:fixed，内容区下移同等高度 */
+html.standalone.tv-1 .view>.nav,html.standalone.tv-6 .view>.nav{position:fixed;top:0;left:0;right:0}
+html.standalone.tv-1 .view>.nav+*,html.standalone.tv-6 .view>.nav+*{margin-top:calc(var(--safe-top) + var(--nav-h) + .5px)}
+/* V2：顶栏 position:sticky; top:0（原位） */
+html.standalone.tv-2 .view>.nav{position:sticky;top:0}
+/* V3：顶栏后面一整块 fixed 不透明底（0 → 顶栏底边） */
+html.standalone.tv-3 .topback{display:block;position:fixed;top:0;left:0;right:0;height:calc(var(--safe-top) + var(--nav-h) + .5px);background:var(--bar);z-index:19;pointer-events:auto}
+/* V4 / V6：html / body 底色 = 顶栏色 */
+html.standalone.tv-4,html.standalone.tv-4 body,html.standalone.tv-6,html.standalone.tv-6 body{background:var(--bar)}
+html.standalone.tv-6 .view{background:transparent}
+html.standalone.tv-6 .scroll,html.standalone.tv-6 .calc{background:var(--page)}
+/* V7：状态栏板可命中（pointer-events:auto）—— 若 WebKit 用命中测试找顶部元素，pointer-events:none 的板会被忽略 */
+html.standalone.tv-7 #sbplate,html.standalone.tv-8 #sbplate{pointer-events:auto}
+/* V8：整屏视图不再是 fixed（改 absolute，高度仍为 --app-h），让状态栏板成为顶部唯一的 fixed 元素 */
+html.standalone.tv-8 .view{position:absolute}
+/* V5：顶栏内容整体下移，避开系统模糊带 */
+html.standalone.tv-5 .view>.nav{padding-top:calc(var(--safe-top) + var(--top-extra, 44px))}
 /* 视口诊断面板（?vp=1 或连点标题 5 次） */
-#vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 50px);z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
+#vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 170px);z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
   font:12px/1.45 ui-monospace,Menlo,monospace;box-shadow:0 8px 30px rgba(0,0,0,.4);-webkit-user-select:text;user-select:text}
 #vpdiag pre{white-space:pre-wrap;word-break:break-all;margin:0 0 8px;-webkit-user-select:text;user-select:text}
 #vpdiag .row2{display:flex;gap:6px;flex-wrap:wrap}
 #vpdiag button{background:#333;color:#fff;border-radius:7px;padding:5px 9px;font:12px -apple-system,sans-serif}
 #vpdiag button.on{background:#fff;color:#000}
+#vpdiag .tvs{margin-top:6px}
+#vpdiag .tvs button{font-size:11.5px}
 body{color:var(--text);overflow:hidden;
   font-family:-apple-system,"SF Pro Text","PingFang SC","Noto Sans CJK SC","Noto Sans SC",sans-serif;
   -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
@@ -495,6 +517,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 <div id="sbplate" aria-hidden="true"></div>
 <!-- ========== 计算器（解锁前的伪装页） ========== -->
 <section class="view" id="v-calc" aria-label="房贷计算器">
+  <div class="topback" aria-hidden="true"></div>
   <header class="nav"><div class="nav-row three">
     <span></span><div class="mid" id="calc-title">房贷计算</div>
     <span class="r"></span>
@@ -540,6 +563,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 
 <!-- ========== 后台（相册） ========== -->
 <section class="view" id="v-album" aria-label="相册" hidden>
+  <div class="topback" aria-hidden="true"></div>
   <header class="nav" id="a-nav"></header>
   <!-- 网格 / 列表内容区。正式应用的分页 / 增量加载（首屏约 20 项、IntersectionObserver 哨兵、缩略图懒解密与缓存）见 DESIGN-NOTES.md「18. Paged / incremental loading」。 -->
   <div class="scroll" id="a-body"></div>
@@ -1698,11 +1722,24 @@ showView();
       "顶栏 上→下: "+rectOf(".view .nav"),
       "Tab 栏 上→下: "+rectOf("#a-bar"),
       "状态栏板: "+(function(){ const e=document.getElementById("sbplate"); if(!e) return "无"; const cs=getComputedStyle(e); if(cs.display==="none") return "关"; const r=e.getBoundingClientRect(); return "开 "+px(r.left)+","+px(r.top)+" "+px(r.width)+"×"+px(r.height)+" "+cs.position+" "+cs.backgroundColor; })(),
+      "y=2 处元素(上→下): "+document.elementsFromPoint(innerWidth/2,2).filter(e=>e.id!=="vpdiag"&&!e.closest("#vpdiag")).slice(0,4).map(e=>{ const cs=getComputedStyle(e), r=e.getBoundingClientRect(); return (e.tagName.toLowerCase()+(e.id?"#"+e.id:"")+(e.classList.length?"."+[...e.classList].join("."):""))+"["+cs.position+" top"+px(r.top)+" h"+px(r.height)+" "+cs.backgroundColor+"]"; }).join(" › "),
+      "y=2 覆盖的 fixed/sticky(含不可点): "+[...document.querySelectorAll("body *")].filter(e=>!e.closest("#vpdiag")&&/fixed|sticky/.test(getComputedStyle(e).position)&&getComputedStyle(e).display!=="none").filter(e=>{const r=e.getBoundingClientRect();return r.top<=2&&r.bottom>2&&r.width>0;}).map(e=>{const cs=getComputedStyle(e),r=e.getBoundingClientRect();return (e.id||e.className||e.tagName)+"["+cs.position+" z"+cs.zIndex+" h"+px(r.height)+" pe:"+cs.pointerEvents+" "+cs.backgroundColor+"]";}).join(" › "),
+      "首个 fixed/sticky: "+(function(){ const e=document.elementsFromPoint(innerWidth/2,2).find(x=>!x.closest("#vpdiag")&&/fixed|sticky/.test(getComputedStyle(x).position)); if(!e) return "无"; const cs=getComputedStyle(e), r=e.getBoundingClientRect(); return (e.id||e.className||e.tagName)+" "+cs.position+" top"+px(r.top)+" h"+px(r.height)+" w"+px(r.width)+" "+cs.backgroundColor; })(),
+      "顶部变体: V"+(localStorage.getItem("top-variant")||"0")+"   下移量(V5): "+(localStorage.getItem("top-extra")||"44")+"px",
       "iOS "+(ios||"?").replace(/_/g,".")+"  Safari "+(ver||"?"),
       ua.slice(0,120)
     ].join("\n");
   }
   let el=null;
+  /* 顶部变体：[编号, 中文说明, 状态栏板默认开/关] */
+  const TV=[["0","仅状态栏板（当前）",true],["1","顶栏自身 fixed",false],["2","顶栏 sticky",false],["3","顶栏后整块 fixed 底",false],["4","页面底色=顶栏色",false],["5","顶栏内容下移",true],["6","组合：fixed 顶栏+底色+透明视图",false],["7","状态栏板可命中",true],["8","视图改 absolute+可命中板",true]];
+  function setTV(k){
+    const d=document.documentElement;
+    TV.forEach(([n])=>d.classList.remove("tv-"+n)); d.classList.add("tv-"+k);
+    const plate=TV.find(t=>t[0]===k)[2];
+    d.classList.toggle("no-plate",!plate);
+    try{ localStorage.setItem("top-variant",k); localStorage.setItem("sb-plate",plate?"on":"off"); }catch(_){}
+  }
   function render(){
     if(!el) return;
     const m=window.__vp?__vp.mode:"auto";
@@ -1711,7 +1748,9 @@ showView();
       <button type="button" data-m="vh" class="${m==="vh"?"on":""}">100vh</button>
       <button type="button" data-m="off" class="${m==="off"?"on":""}">关闭修复</button>
       <button type="button" data-x="p" class="${document.documentElement.classList.contains("no-plate")?"":"on"}">状态栏板 ${document.documentElement.classList.contains("no-plate")?"关":"开"}</button>
-      <button type="button" data-x="r">刷新</button><button type="button" data-x="c">关闭</button></div>`;
+      <button type="button" data-x="r">刷新</button><button type="button" data-x="c">关闭</button></div>
+      <div class="row2 tvs">${TV.map(([k,l])=>`<button type="button" data-tv="${k}" class="${(localStorage.getItem("top-variant")||"0")===k?"on":""}">V${k} ${l}</button>`).join("")}</div>
+      <div class="row2 tvs">${["24","44","64"].map(x=>`<button type="button" data-tx="${x}" class="${(localStorage.getItem("top-extra")||"44")===x?"on":""}">V5 下移 ${x}</button>`).join("")}</div>`;
     el.querySelector("pre").textContent=text();
   }
   function open(){
@@ -1720,6 +1759,8 @@ showView();
     el.addEventListener("click",e=>{ e.stopPropagation();
       const b=e.target.closest("button"); if(!b) return;
       if(b.dataset.m&&window.__vp){ __vp.setMode(b.dataset.m); setTimeout(render,50); }
+      else if(b.dataset.tv){ setTV(b.dataset.tv); setTimeout(render,50); }
+      else if(b.dataset.tx){ document.documentElement.style.setProperty("--top-extra",b.dataset.tx+"px"); try{localStorage.setItem("top-extra",b.dataset.tx);}catch(_){} setTimeout(render,50); }
       else if(b.dataset.x==="r") render();
       else if(b.dataset.x==="p"){ const off=document.documentElement.classList.toggle("no-plate"); try{localStorage.setItem("sb-plate",off?"off":"on");}catch(_){} render(); }
       else if(b.dataset.x==="c"){ el.remove(); el=null; }
