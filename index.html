@@ -10,6 +10,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
+<!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=10">
 <title>房贷计算器 · 商业贷款与个税估算</title>
 <!-- Plyr（MIT，https://github.com/sampotts/plyr）本地内置，离线可用，不依赖 CDN -->
 <link rel="stylesheet" href="vendor/plyr/plyr.css">
@@ -18,6 +22,35 @@
 /* 尽早应用主题，避免闪烁。打开时总是计算器页 → 用明文键 calc-theme（night / day / system）。
    相册主题为独立键 album-theme；旧版只有 calc-theme 时迁移为两者相同。 */
 (function(){try{var c=localStorage.getItem("calc-theme");if(c&&!localStorage.getItem("album-theme"))localStorage.setItem("album-theme",c);var p=c||"night";var t=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"night":"day"):p;document.documentElement.setAttribute("data-theme",t==="day"?"day":"night");}catch(e){}})();
+</script>
+<script>
+/* iOS 主屏 App 全屏修复（§23）：WebKit 在 standalone + viewport-fit=cover + black-translucent 下会把布局视口
+   （innerHeight / 100% / 100dvh / position:fixed 的 bottom:0）报短，导致底部一条没有绘制。
+   只在 standalone 下：<html> 加 .standalone；.sa-fix 时整屏视图改用显式高度 --app-h（不依赖 bottom:0）。
+   --app-h：JS 取 max(innerHeight, visualViewport.height, clientHeight, 竖屏 screen 高度)，仅 iOS 且差值像该 bug（≤140px）时采用 screen；
+   CSS 兜底为 max(100vh, 100dvh + 底部安全区)。诊断面板可切换模式（localStorage vp-mode：auto / vh / off）。 */
+(function(){
+  var d=document.documentElement, q=location.search;
+  var sa=navigator.standalone===true||matchMedia("(display-mode: standalone)").matches||matchMedia("(display-mode: fullscreen)").matches||/[?&]sa=1/.test(q);
+  var ios=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)||/[?&]sa=1/.test(q);
+  var mode="auto"; try{mode=localStorage.getItem("vp-mode")||"auto";}catch(e){}
+  if(sa) d.classList.add("standalone");
+  function apply(){
+    if(!sa||mode==="off"){ d.classList.remove("sa-fix"); d.style.removeProperty("--app-h"); return; }
+    d.classList.add("sa-fix");
+    if(mode==="vh"){ d.style.removeProperty("--app-h"); return; }
+    var land=matchMedia("(orientation: landscape)").matches;
+    var scr=land?Math.min(screen.width,screen.height):Math.max(screen.width,screen.height);
+    var vv=window.visualViewport?visualViewport.height:0;
+    var h=Math.max(innerHeight, vv, d.clientHeight||0);
+    if(ios&&scr>h&&scr-h<=140) h=scr;
+    d.style.setProperty("--app-h", Math.round(h)+"px");
+  }
+  window.__vp={standalone:sa, ios:ios, get mode(){return mode;}, setMode:function(m){mode=m; try{localStorage.setItem("vp-mode",m);}catch(e){} apply();}, apply:apply};
+  apply();
+  ["resize","orientationchange","pageshow"].forEach(function(ev){ addEventListener(ev,function(){ apply(); setTimeout(apply,300); }); });
+  if(window.visualViewport) visualViewport.addEventListener("resize",apply);
+})();
 </script>
 <script>
 /* 仅供截图 / 调试：?safe=59,34 模拟 iPhone 主屏 App 的安全区（真机由 env(safe-area-inset-*) 提供）。正式应用不需要。 */
@@ -63,6 +96,21 @@ input,textarea,[contenteditable],[contenteditable] *{-webkit-user-select:text;us
 /* 全屏（iOS 主屏 App）：见 DESIGN-NOTES §23。不要用 100vh，也不要给视图加 max-height:100dvh 之类的上限。 */
 html,body{height:100%;background:var(--page);overflow:hidden;overscroll-behavior:none}
 @supports (-webkit-touch-callout:none){html,body{height:-webkit-fill-available}}
+/* 仅 standalone（.sa-fix）：整屏层改用显式高度 --app-h，不再用 bottom:0 / inset:0 依赖被报短的视口 */
+html.sa-fix{--app-h:100vh}
+@supports (height:100dvh){html.sa-fix{--app-h:max(100vh, calc(100dvh + var(--safe-bottom)))}}
+html.sa-fix,html.sa-fix body{height:var(--app-h)}
+html.sa-fix .view,html.sa-fix .viewer,html.sa-fix .dlg-back{bottom:auto;height:var(--app-h)}
+/* fixed 的 bottom 以（短）视口为准：补上 --app-h 与视口高度之差（100% = 视口高度） */
+html.sa-fix .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--safe-bottom) + 14px)}
+html.sa-fix #v-album.selmode ~ #layer .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--safe-bottom) + 58px)}
+/* 视口诊断面板（?vp=1 或连点标题 5 次） */
+#vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 50px);z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
+  font:12px/1.45 ui-monospace,Menlo,monospace;box-shadow:0 8px 30px rgba(0,0,0,.4);-webkit-user-select:text;user-select:text}
+#vpdiag pre{white-space:pre-wrap;word-break:break-all;margin:0 0 8px;-webkit-user-select:text;user-select:text}
+#vpdiag .row2{display:flex;gap:6px;flex-wrap:wrap}
+#vpdiag button{background:#333;color:#fff;border-radius:7px;padding:5px 9px;font:12px -apple-system,sans-serif}
+#vpdiag button.on{background:#fff;color:#000}
 body{color:var(--text);overflow:hidden;
   font-family:-apple-system,"SF Pro Text","PingFang SC","Noto Sans CJK SC","Noto Sans SC",sans-serif;
   -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
@@ -316,7 +364,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .nav-row.three .r.strong{font-weight:650}
 /* 编辑工具条：贴在键盘上方（原型中贴底） */
 .etb{position:relative;flex:0 0 auto;height:calc(44px + var(--safe-bottom));padding:0 calc(var(--safe-right) + 6px) var(--safe-bottom) calc(var(--safe-left) + 6px);
-  background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);
+  background:var(--bar);
   border-top:.5px solid var(--sep);display:flex;align-items:center;justify-content:space-between;z-index:20}
 .etb .ibtn{width:38px;height:36px;border-radius:9px}
 .etb .ibtn.on{background:var(--surface-2)}
@@ -1613,6 +1661,69 @@ wireCalc();
 showView();
 
 
+
+/* ===== 视口诊断面板（仅草稿 / 调试）：?vp=1 或 5 次快速点按顶栏标题 ===== */
+(function(){
+  function px(v){ return Math.round(v*10)/10; }
+  function probe(){
+    const p=document.createElement("div");
+    p.style.position="fixed"; p.style.visibility="hidden"; p.style.top="0"; p.style.left="0";
+    p.style.paddingTop="env(safe-area-inset-top)"; p.style.paddingBottom="env(safe-area-inset-bottom)";
+    document.body.appendChild(p);
+    const cs=getComputedStyle(p), r=[parseFloat(cs.paddingTop)||0, parseFloat(cs.paddingBottom)||0];
+    p.remove(); return r;
+  }
+  function rectOf(sel){ const e=[...document.querySelectorAll(sel)].find(x=>!x.closest("[hidden]")&&!x.hidden); if(!e) return "—"; const r=e.getBoundingClientRect(); return px(r.top)+"→"+px(r.bottom); }
+  function text(){
+    const d=document.documentElement, vv=window.visualViewport, [st,sb]=probe();
+    const ua=navigator.userAgent, ios=(/OS (\d+[_\d]*)/.exec(ua)||[])[1], ver=(/Version\/([\d.]+)/.exec(ua)||[])[1];
+    return [
+      "standalone: "+(window.__vp&&__vp.standalone?"是":"否")+"  (navigator.standalone="+navigator.standalone+", display-mode standalone="+matchMedia("(display-mode: standalone)").matches+")",
+      "高度模式: "+(window.__vp?__vp.mode:"?")+"   sa-fix="+d.classList.contains("sa-fix")+"   --app-h="+(d.style.getPropertyValue("--app-h")||getComputedStyle(d).getPropertyValue("--app-h")||"—"),
+      "screen: "+screen.width+"×"+screen.height+"   dpr: "+devicePixelRatio,
+      "inner: "+innerWidth+"×"+innerHeight+"   outerH: "+outerHeight,
+      "visualViewport: "+(vv?px(vv.width)+"×"+px(vv.height)+" offTop "+px(vv.offsetTop):"—"),
+      "docEl.clientHeight: "+d.clientHeight+"   body: "+px(document.body.getBoundingClientRect().height),
+      "env 安全区 top/bottom: "+px(st)+" / "+px(sb),
+      ".view(可见) 上→下: "+rectOf(".view"),
+      "顶栏 上→下: "+rectOf(".view .nav"),
+      "Tab 栏 上→下: "+rectOf("#a-bar"),
+      "iOS "+(ios||"?").replace(/_/g,".")+"  Safari "+(ver||"?"),
+      ua.slice(0,120)
+    ].join("\n");
+  }
+  let el=null;
+  function render(){
+    if(!el) return;
+    const m=window.__vp?__vp.mode:"auto";
+    el.innerHTML=`<pre></pre><div class="row2">
+      <button type="button" data-m="auto" class="${m==="auto"?"on":""}">自动(屏幕高)</button>
+      <button type="button" data-m="vh" class="${m==="vh"?"on":""}">100vh</button>
+      <button type="button" data-m="off" class="${m==="off"?"on":""}">关闭修复</button>
+      <button type="button" data-x="r">刷新</button><button type="button" data-x="c">关闭</button></div>`;
+    el.querySelector("pre").textContent=text();
+  }
+  function open(){
+    if(el){ el.remove(); el=null; return; }
+    el=document.createElement("div"); el.id="vpdiag"; document.body.appendChild(el);
+    el.addEventListener("click",e=>{ e.stopPropagation();
+      const b=e.target.closest("button"); if(!b) return;
+      if(b.dataset.m&&window.__vp){ __vp.setMode(b.dataset.m); setTimeout(render,50); }
+      else if(b.dataset.x==="r") render();
+      else if(b.dataset.x==="c"){ el.remove(); el=null; }
+    });
+    render();
+  }
+  window.__vpdiag=open;
+  ["resize","orientationchange"].forEach(ev=>addEventListener(ev,()=>setTimeout(render,350)));
+  let taps=[];
+  document.addEventListener("click",e=>{
+    if(!e.target.closest||!e.target.closest(".nav .mid,.nav-title")) return;
+    const now=Date.now(); taps=taps.filter(t=>now-t<2000); taps.push(now);
+    if(taps.length>=5){ taps=[]; open(); }
+  },true);
+  if(/[?&]vp=1/.test(location.search)) addEventListener("load",open);
+})();
 </script>
 </body>
 </html>
