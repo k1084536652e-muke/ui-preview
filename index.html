@@ -35,6 +35,7 @@
   var ios=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)||/[?&]sa=1/.test(q);
   var mode="auto"; try{mode=localStorage.getItem("vp-mode")||"auto";}catch(e){}
   if(sa) d.classList.add("standalone");
+  try{ if(localStorage.getItem("sb-plate")==="off") d.classList.add("no-plate"); }catch(e){}
   function apply(){
     if(!sa||mode==="off"){ d.classList.remove("sa-fix"); d.style.removeProperty("--app-h"); return; }
     d.classList.add("sa-fix");
@@ -104,6 +105,13 @@ html.sa-fix .view,html.sa-fix .viewer,html.sa-fix .dlg-back{bottom:auto;height:v
 /* fixed 的 bottom 以（短）视口为准：补上 --app-h 与视口高度之差（100% = 视口高度） */
 html.sa-fix .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--safe-bottom) + 14px)}
 html.sa-fix #v-album.selmode ~ #layer .toast{bottom:calc(100% - var(--app-h) + var(--tab-h) + var(--safe-bottom) + 58px)}
+/* 状态栏底板（§23）：iOS 26.1+/27 主屏 App 会在顶部边缘叠加系统渐进模糊；唯一已知规避是一个【自身】position:fixed、
+   距顶 ≤4px、高 ≥6px、宽 ≥80%、背景不透明的元素 —— 状态栏随即取其纯色，不再画模糊。颜色 = 当前顶栏色。 */
+#sbplate{position:fixed;top:0;left:0;right:0;height:max(6px, var(--safe-top));background:var(--bar);z-index:90;pointer-events:none}
+body:has(.viewer) #sbplate{background:#000}                                 /* 照片查看器 / 视频页 */
+body:has(.dlg-back.show) #sbplate{background:color-mix(in srgb, var(--bar), #000 45%)} /* 对话框遮罩同等变暗 */
+body:has(.viewer):has(.dlg-back.show) #sbplate{background:color-mix(in srgb, #000, #000 45%)}
+html.no-plate #sbplate{display:none}
 /* 视口诊断面板（?vp=1 或连点标题 5 次） */
 #vpdiag{position:fixed;left:8px;right:8px;top:calc(var(--safe-top) + 50px);z-index:100;background:rgba(0,0,0,.86);color:#fff;border-radius:12px;padding:10px 12px;
   font:12px/1.45 ui-monospace,Menlo,monospace;box-shadow:0 8px 30px rgba(0,0,0,.4);-webkit-user-select:text;user-select:text}
@@ -484,6 +492,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 </style>
 </head>
 <body>
+<div id="sbplate" aria-hidden="true"></div>
 <!-- ========== 计算器（解锁前的伪装页） ========== -->
 <section class="view" id="v-calc" aria-label="房贷计算器">
   <header class="nav"><div class="nav-row three">
@@ -1688,6 +1697,7 @@ showView();
       ".view(可见) 上→下: "+rectOf(".view"),
       "顶栏 上→下: "+rectOf(".view .nav"),
       "Tab 栏 上→下: "+rectOf("#a-bar"),
+      "状态栏板: "+(function(){ const e=document.getElementById("sbplate"); if(!e) return "无"; const cs=getComputedStyle(e); if(cs.display==="none") return "关"; const r=e.getBoundingClientRect(); return "开 "+px(r.left)+","+px(r.top)+" "+px(r.width)+"×"+px(r.height)+" "+cs.position+" "+cs.backgroundColor; })(),
       "iOS "+(ios||"?").replace(/_/g,".")+"  Safari "+(ver||"?"),
       ua.slice(0,120)
     ].join("\n");
@@ -1700,6 +1710,7 @@ showView();
       <button type="button" data-m="auto" class="${m==="auto"?"on":""}">自动(屏幕高)</button>
       <button type="button" data-m="vh" class="${m==="vh"?"on":""}">100vh</button>
       <button type="button" data-m="off" class="${m==="off"?"on":""}">关闭修复</button>
+      <button type="button" data-x="p" class="${document.documentElement.classList.contains("no-plate")?"":"on"}">状态栏板 ${document.documentElement.classList.contains("no-plate")?"关":"开"}</button>
       <button type="button" data-x="r">刷新</button><button type="button" data-x="c">关闭</button></div>`;
     el.querySelector("pre").textContent=text();
   }
@@ -1710,6 +1721,7 @@ showView();
       const b=e.target.closest("button"); if(!b) return;
       if(b.dataset.m&&window.__vp){ __vp.setMode(b.dataset.m); setTimeout(render,50); }
       else if(b.dataset.x==="r") render();
+      else if(b.dataset.x==="p"){ const off=document.documentElement.classList.toggle("no-plate"); try{localStorage.setItem("sb-plate",off?"off":"on");}catch(_){} render(); }
       else if(b.dataset.x==="c"){ el.remove(); el=null; }
     });
     render();
