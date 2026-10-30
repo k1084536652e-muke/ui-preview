@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261030180123"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261030182448"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -178,6 +178,9 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .nav-row.three .r{justify-self:end}
 .back{display:flex;align-items:center;color:var(--text);font-size:16px;height:40px}
 .back svg.i{width:24px;height:24px;margin-right:-2px}
+/* §60 左缘右滑返回：跟手位移时临时关闭过渡 */
+.edge-back-dragging,.edge-back-dragging *{transition:none!important}
+#v-album.edge-back-dragging,#layer>.viewer.edge-back-dragging{will-change:transform,opacity;box-shadow:-8px 0 28px rgba(0,0,0,.18)}
 .search-wrap{padding:2px 16px 10px;display:flex;flex-direction:column;gap:8px}
 .field{height:36px;border-radius:10px;background:var(--field);display:flex;align-items:center;gap:6px;padding:0 6px 0 10px;color:var(--muted)}
 .field svg.i{width:17px;height:17px}
@@ -1336,7 +1339,10 @@ function bindDragSelect(){
   if(body._ds) return; body._ds=true;
   body.addEventListener("touchstart",e=>{
     if(e.touches.length!==1){ dsEnd(); return; }
-    const t=e.touches[0]; DS.track=true; DS.decided=false; DS.mouse=false; DS.armed=false;
+    const t=e.touches[0];
+    /* 左缘交给 §60 右滑返回，不启动拖选跟踪 */
+    if(t.clientX<=(typeof EB_EDGE==="number"?EB_EDGE:20)&&typeof edgeBackTarget==="function"&&edgeBackTarget()){ DS.track=false; return; }
+    DS.track=true; DS.decided=false; DS.mouse=false; DS.armed=false;
     DS.x0=DS.x=t.clientX; DS.y0=DS.y=t.clientY;
   },{passive:true});
   body.addEventListener("touchmove",e=>{ if(!DS.track||e.touches.length!==1) return; const t=e.touches[0]; dsMove(t.clientX,t.clientY,e); },{passive:false});
@@ -1736,6 +1742,122 @@ function bindSegDrag(){
   document.addEventListener("pointerup",up,true); document.addEventListener("pointercancel",up,true);
   document.addEventListener("click",e=>{ if(!SEGD.prog&&SEGD.swallow&&Date.now()-SEGD.swallow<350&&e.target.closest&&e.target.closest(".seg.slide")){ e.stopPropagation(); e.preventDefault(); SEGD.swallow=0; } },true);
 }
+
+/* §60 左缘右滑返回（iOS 风格）：起点在左缘 ~20px，右滑达阈值或速度阈值后执行与点 ‹ 相同动作。
+   非长按后滑动；对话框/进度遮罩打开时不触发；中屏横向拖仍留给多选拖选。 */
+const EB={on:false,id:null,x0:0,y0:0,t0:0,dx:0,panel:null,act:null,moved:false};
+const EB_EDGE=20, EB_ARM=8, EB_COMMIT=56, EB_VEL=0.45;
+function edgeBackBlocked(){
+  return !!document.querySelector(".dlg-back.show");
+}
+function edgeBackTarget(){
+  if(S.view!=="album") return null;
+  if(edgeBackBlocked()) return null;
+  const viewer=document.querySelector("#layer>.viewer");
+  if(viewer){
+    return {el:viewer, act:()=>{
+      const b=viewer.querySelector('[data-x="back"]');
+      if(b) b.click();
+      else { try{viewer._player&&viewer._player.destroy()}catch(_){} viewer.remove(); }
+    }};
+  }
+  if(S.doc){
+    return {el:document.getElementById("v-album"), act:()=>{
+      const b=document.querySelector('#a-nav [data-act="doc-back"]'); if(b) b.click();
+    }};
+  }
+  if(S.sub){
+    return {el:document.getElementById("v-album"), act:()=>{
+      const b=document.querySelector('#a-nav [data-act="back-sub"]'); if(b) b.click();
+    }};
+  }
+  if(S.folder){
+    return {el:document.getElementById("v-album"), act:()=>{
+      const b=document.querySelector('#a-nav [data-act="back-folder"]'); if(b) b.click();
+    }};
+  }
+  return null;
+}
+function ebResetVisual(el){
+  if(!el) return;
+  el.classList.remove("edge-back-dragging");
+  el.style.transition=""; el.style.transform=""; el.style.opacity=""; el.style.boxShadow="";
+}
+function ebFollow(el,dx){
+  if(!el) return;
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const x=Math.max(0,dx);
+  el.classList.add("edge-back-dragging");
+  el.style.transition="none";
+  el.style.transform="translate3d("+x+"px,0,0)";
+  el.style.opacity=String(Math.max(0.55, 1-x/420));
+}
+function bindEdgeBack(){
+  if(document._eb) return; document._eb=true;
+  document.addEventListener("pointerdown",e=>{
+    if(EB.on) return;
+    if(e.button>0) return;
+    if(e.clientX>EB_EDGE) return;
+    if(e.target.closest&&e.target.closest("input,textarea,[contenteditable],.dlg-back,.plyr__controls,.plyr__menu")) return;
+    const t=edgeBackTarget(); if(!t||!t.el) return;
+    EB.on=true; EB.id=e.pointerId; EB.x0=e.clientX; EB.y0=e.clientY; EB.t0=performance.now();
+    EB.dx=0; EB.panel=t.el; EB.act=t.act; EB.moved=false;
+    clearTimeout(LP.timer); LP.timer=0;
+    DS.track=false; DS.armed=false; /* 左缘不交给拖选 */
+  },{capture:true,passive:true});
+  document.addEventListener("pointermove",e=>{
+    if(!EB.on||e.pointerId!==EB.id) return;
+    if(edgeBackBlocked()){ ebCancel(); return; }
+    const dx=e.clientX-EB.x0, dy=e.clientY-EB.y0;
+    if(!EB.moved){
+      if(Math.hypot(dx,dy)<EB_ARM) return;
+      if(Math.abs(dy)>Math.abs(dx)*1.15 || dx<=2){ ebCancel(); return; } /* 竖滑/左滑放弃 */
+      EB.moved=true;
+      try{ document.body.setPointerCapture(e.pointerId); }catch(_){}
+    }
+    EB.dx=Math.max(0,dx);
+    if(e.cancelable) e.preventDefault();
+    ebFollow(EB.panel, EB.dx);
+  },{capture:true,passive:false});
+  function ebCancel(){
+    const panel=EB.panel, moved=EB.moved;
+    EB.on=false; EB.id=null; EB.act=null;
+    if(panel&&moved){
+      panel.style.transition="transform .22s cubic-bezier(.2,.9,.3,1), opacity .22s ease";
+      panel.style.transform=""; panel.style.opacity="";
+      setTimeout(()=>ebResetVisual(panel),240);
+    } else ebResetVisual(panel);
+    EB.panel=null; EB.moved=false;
+  }
+  function ebEnd(e){
+    if(!EB.on||(e&&e.pointerId!=null&&e.pointerId!==EB.id)) return;
+    const dt=Math.max(1, performance.now()-EB.t0);
+    const vel=EB.dx/dt;
+    const commit=EB.moved && (EB.dx>=EB_COMMIT || (EB.dx>28 && vel>=EB_VEL));
+    const panel=EB.panel, act=EB.act, moved=EB.moved;
+    EB.on=false; EB.id=null; EB.panel=null; EB.act=null; EB.moved=false;
+    if(!commit){
+      if(panel&&moved){
+        panel.style.transition="transform .22s cubic-bezier(.2,.9,.3,1), opacity .22s ease";
+        panel.style.transform=""; panel.style.opacity="";
+        setTimeout(()=>ebResetVisual(panel),240);
+      } else ebResetVisual(panel);
+      return;
+    }
+    const finish=()=>{ ebResetVisual(panel); try{ act&&act(); }catch(_){} };
+    if(panel&&moved&&!matchMedia("(prefers-reduced-motion: reduce)").matches){
+      const w=Math.max(panel.clientWidth||innerWidth, 280);
+      panel.style.transition="transform .18s ease-out, opacity .18s ease-out";
+      panel.style.transform="translate3d("+Math.max(EB.dx, w*0.42)+"px,0,0)";
+      panel.style.opacity="0.3";
+      setTimeout(finish,170);
+    } else finish();
+  }
+  document.addEventListener("pointerup",ebEnd,{capture:true});
+  document.addEventListener("pointercancel",ebEnd,{capture:true});
+  window.__edgeBack={EB, edgeBackTarget, edgeBackBlocked, EB_EDGE, EB_COMMIT}; /* 验收用 */
+}
+
 function bindAlbum(){
   bindSegDrag();
   const root=document.getElementById("v-album");
@@ -1883,6 +2005,7 @@ function bindAlbum(){
   };
   bindLongPress(root);
   bindDragSelect();
+  bindEdgeBack();
   const q=document.getElementById("q");
   if(q){
     q.oninput=function(){ S.q=q.value; const c=document.querySelector("#sbox .clr"); if(c) c.classList.toggle("show",!!S.q); updSearchDot(); refreshBody(); };
