@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261030182448"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261030183244"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -1744,7 +1744,18 @@ function bindSegDrag(){
 }
 
 /* §60 左缘右滑返回（iOS 风格）：起点在左缘 ~20px，右滑达阈值或速度阈值后执行与点 ‹ 相同动作。
-   非长按后滑动；对话框/进度遮罩打开时不触发；中屏横向拖仍留给多选拖选。 */
+   非长按后滑动；对话框/进度遮罩打开时不触发；中屏横向拖仍留给多选拖选。
+   相册内子页（文件夹/设置子页/文档）与 ‹ 共用 navBack*，且禁止跟手平移 #v-album——
+   整壳滑走会露底（虚空/计算器伪装），表现为「右滑退出到计算器封面」。仅查看器浮层可跟手滑出。 */
+function navBackFolder(){ S.folder=null; resetModes(); render(); }
+function navBackSub(){ S.sub=null; render(); }
+function navBackDoc(){ S.doc=null; if(S.plusResume){ S.plusResume=false; S.plus=true; reopenPlus=true; } render(); reopenPlus=false; }
+function navBackViewer(viewer){
+  const v=viewer||document.querySelector("#layer>.viewer"); if(!v) return;
+  const b=v.querySelector('[data-x="back"]');
+  if(b) b.click();
+  else { try{v._player&&v._player.destroy()}catch(_){} v.remove(); }
+}
 const EB={on:false,id:null,x0:0,y0:0,t0:0,dx:0,panel:null,act:null,moved:false};
 const EB_EDGE=20, EB_ARM=8, EB_COMMIT=56, EB_VEL=0.45;
 function edgeBackBlocked(){
@@ -1754,28 +1765,11 @@ function edgeBackTarget(){
   if(S.view!=="album") return null;
   if(edgeBackBlocked()) return null;
   const viewer=document.querySelector("#layer>.viewer");
-  if(viewer){
-    return {el:viewer, act:()=>{
-      const b=viewer.querySelector('[data-x="back"]');
-      if(b) b.click();
-      else { try{viewer._player&&viewer._player.destroy()}catch(_){} viewer.remove(); }
-    }};
-  }
-  if(S.doc){
-    return {el:document.getElementById("v-album"), act:()=>{
-      const b=document.querySelector('#a-nav [data-act="doc-back"]'); if(b) b.click();
-    }};
-  }
-  if(S.sub){
-    return {el:document.getElementById("v-album"), act:()=>{
-      const b=document.querySelector('#a-nav [data-act="back-sub"]'); if(b) b.click();
-    }};
-  }
-  if(S.folder){
-    return {el:document.getElementById("v-album"), act:()=>{
-      const b=document.querySelector('#a-nav [data-act="back-folder"]'); if(b) b.click();
-    }};
-  }
+  if(viewer) return {el:viewer, act:()=>navBackViewer(viewer)};
+  /* el:null → 不跟手平移 #v-album（避免整壳滑出露计算器底）；act 与顶栏 ‹ 同函数 */
+  if(S.doc) return {el:null, act:navBackDoc};
+  if(S.sub) return {el:null, act:navBackSub};
+  if(S.folder) return {el:null, act:navBackFolder};
   return null;
 }
 function ebResetVisual(el){
@@ -1799,9 +1793,9 @@ function bindEdgeBack(){
     if(e.button>0) return;
     if(e.clientX>EB_EDGE) return;
     if(e.target.closest&&e.target.closest("input,textarea,[contenteditable],.dlg-back,.plyr__controls,.plyr__menu")) return;
-    const t=edgeBackTarget(); if(!t||!t.el) return;
+    const t=edgeBackTarget(); if(!t) return; /* el 可为 null（相册内子页无跟手壳） */
     EB.on=true; EB.id=e.pointerId; EB.x0=e.clientX; EB.y0=e.clientY; EB.t0=performance.now();
-    EB.dx=0; EB.panel=t.el; EB.act=t.act; EB.moved=false;
+    EB.dx=0; EB.panel=t.el||null; EB.act=t.act; EB.moved=false;
     clearTimeout(LP.timer); LP.timer=0;
     DS.track=false; DS.armed=false; /* 左缘不交给拖选 */
   },{capture:true,passive:true});
@@ -1855,7 +1849,7 @@ function bindEdgeBack(){
   }
   document.addEventListener("pointerup",ebEnd,{capture:true});
   document.addEventListener("pointercancel",ebEnd,{capture:true});
-  window.__edgeBack={EB, edgeBackTarget, edgeBackBlocked, EB_EDGE, EB_COMMIT}; /* 验收用 */
+  window.__edgeBack={EB, edgeBackTarget, edgeBackBlocked, EB_EDGE, EB_COMMIT, navBackFolder, navBackSub, navBackDoc}; /* 验收用 */
 }
 
 function bindAlbum(){
@@ -1911,7 +1905,7 @@ function bindAlbum(){
     if(!act) return;
     if(act==="lock"){ lock(); return; }
     if(act==="back"){ S.tab="photos"; render(); return; }
-    if(act==="doc-back"){ S.doc=null; if(S.plusResume){ S.plusResume=false; S.plus=true; reopenPlus=true; } render(); reopenPlus=false; return; }
+    if(act==="doc-back"){ navBackDoc(); return; }
     if(act==="doc-edit"){ S.doc.mode="edit"; render(); return; }
     if(act==="doc-done"){ S.doc.mode="view"; S.doc.sheet=false; S.doc.isNew=false; toast("已保存"); render(); return; }
     if(act==="doc-aa"){ S.doc.sheet=!S.doc.sheet; render(); return; }
@@ -1945,9 +1939,9 @@ function bindAlbum(){
     }
     if(act==="open-wipe"){ verifyUnlockPin(()=>{ S.sub="wipe"; render(); }); return; }
     if(act==="save-wipe"){ verifyUnlockPin(()=>{ toast("紧急清除码已保存"); S.sub=null; render(); }); return; }
-    if(act==="back-sub"){ S.sub=null; render(); return; }
+    if(act==="back-sub"){ navBackSub(); return; }
     if(act==="rename-folder"){ renameFolder(S.folder); return; }
-    if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
+    if(act==="back-folder"){ navBackFolder(); return; }
     /* 搜索与多选互斥，切换时两个动画同时进行（§39 第四轮修订） */
     if(act==="toggle-search"){ if(!S.search&&S.select) exitSelect(); toggleSearch(); return; }
     if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); updSearchDot(); refreshBody(); return; }
