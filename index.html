@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261030175031"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261030180123"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -565,11 +565,11 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .page-end{height:44px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--faint);font-size:12px;letter-spacing:.2px;flex:0 0 auto;user-select:none}
 .page-end .spin{width:12px;height:12px;border-width:1.5px}
 .page-end.done{color:var(--faint)}
-/* D-04 多选时搜索置灰 */
-.ibtn.dim,.ibtn:disabled{opacity:.34;pointer-events:none;color:var(--faint)}
-/* A-05 清空全部数据危险行 */
-.row.danger-row span{color:var(--danger);font-weight:550}
-.row.danger-row:active{background:var(--surface-2)}
+/* R7：清空全部数据独立危险按钮（非菜单行） */
+.dangerbtn.settings-clear{margin-top:14px;height:50px;border-radius:13px;background:var(--group);font-weight:600}
+.dangerbtn.settings-clear:active{opacity:.75}
+.dlg .din input[type=password]{letter-spacing:3px;-webkit-text-security:disc}
+.dlg .din input[type=password]::placeholder{letter-spacing:0}
 /* A-08 更新失败 */
 .upbtn.retry{background:transparent;color:var(--text);border:1px solid var(--sep);font-weight:600}
 .verrow.fail .vs{color:var(--danger)}
@@ -1010,7 +1010,7 @@ function render(opts){
     nav.innerHTML=`<div class="nav-row${S.folder?" sub icons":""}">
       ${S.folder?`<button type="button" class="back" data-act="back-folder" aria-label="返回">${ic("chevl")}</button>`:""}
       <div class="nav-title"><b>${esc(title)}</b>${count?`<small>${count}</small>`:""}</div>
-      ${selectable?`<button type="button" class="ibtn${S.search?" on":""}${S.select?" dim":""}" data-act="toggle-search" aria-label="搜索${S.select?"（多选中不可用）":S.q.trim()?"（正在筛选）":""}" aria-pressed="${S.search}" ${S.select?"disabled aria-disabled=\"true\"":""}>${ic("search")}<i class="sdot${S.q.trim()&&!S.select?" show":""}" aria-hidden="true"></i></button>`:""}
+      ${selectable?`<button type="button" class="ibtn${S.search?" on":""}" data-act="toggle-search" aria-label="搜索${S.q.trim()?"（正在筛选）":""}" aria-pressed="${S.search}">${ic("search")}<i class="sdot${S.q.trim()?" show":""}" aria-hidden="true"></i></button>`:""}
       ${selectable?`<button type="button" class="ibtn${S.select?" on":""}" data-act="toggle-select" aria-label="多选" aria-pressed="${S.select}">${ic("checks")}</button>`:""}
       ${ctx==="trash"&&TRASH.length?`<button type="button" class="ibtn danger" data-act="empty-trash" aria-label="清空回收站">${ic("brush")}</button>`:""}
       ${S.folder?`<button type="button" class="ibtn" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button>`:`<button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button>`}
@@ -1108,13 +1108,11 @@ function applySelect(){
   S.sel.forEach(k=>markSel(k,true));
   const b=document.querySelector('#a-nav [data-act="toggle-select"]');
   if(b){ b.classList.toggle("on",S.select); b.setAttribute("aria-pressed",String(S.select)); }
-  /* D-04：多选时搜索置灰 */
   const sbtn=document.querySelector('#a-nav [data-act="toggle-search"]');
   if(sbtn){
-    sbtn.classList.toggle("dim", !!S.select);
-    if(S.select){ sbtn.setAttribute("disabled",""); sbtn.setAttribute("aria-disabled","true"); sbtn.setAttribute("aria-label","搜索（多选中不可用）"); }
-    else { sbtn.removeAttribute("disabled"); sbtn.removeAttribute("aria-disabled"); sbtn.setAttribute("aria-label","搜索"+(S.q.trim()?"（正在筛选）":"")); }
-    const dot=sbtn.querySelector(".sdot"); if(dot) dot.classList.toggle("show", !!S.q.trim()&&!S.select);
+    sbtn.removeAttribute("disabled"); sbtn.removeAttribute("aria-disabled");
+    sbtn.classList.remove("dim");
+    updSearchDot();
   }
   closeSelMenu();
   renderSelbar();
@@ -1211,7 +1209,7 @@ function settingsBody(){
           <label class="row frow"><span class="lab">清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="4–9 位数字" maxlength="9"></label>
           <label class="row frow"><span class="lab">确认清除码</span><input type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="再次输入" maxlength="9"></label>
         </div>
-        <button type="button" class="cta" data-act="noop">保存</button>
+        <button type="button" class="cta" data-act="save-wipe">保存</button>
         <button type="button" class="dangerbtn" disabled>关闭紧急清除</button>
       </div>`;
   } else {
@@ -1236,8 +1234,8 @@ function settingsBody(){
         <div class="group">
           <button type="button" class="row" data-act="open-pin"><span>解锁码</span><span class="v">修改${ic("chev")}</span></button>
           <button type="button" class="row" data-act="open-wipe"><span>紧急清除码</span><span class="v">未配置${ic("chev")}</span></button>
-          <button type="button" class="row danger-row" data-act="clear-all"><span>清空全部数据</span></button>
         </div>
+        <button type="button" class="dangerbtn settings-clear" data-act="clear-all">清空全部数据</button>
         <p class="gf">「清空全部数据」立即删除本机相册内容，与紧急清除码（在计算器输入触发）分开。</p>
         <div class="gh">关于</div>
         <div class="group">
@@ -1422,12 +1420,12 @@ function fcardHTML(f, selecting){
   return `<button type="button" class="fcard${sel?" sel":""}" data-folder="${f.id}"><div class="fwrap">${folderCover(f)}${mark}</div><div class="fname">${hl(f.n)}</div><div class="fcount">${f.c} 项</div></button>`;
 }
 /* 原型一次性渲染全部演示项；正式应用按 DESIGN-NOTES §18 分批解密 / 渲染（每批约 20 项，哨兵触发下一批）。 */
-/* A-03 分页脚：固定 44px；草稿默认「已到底」，可点切换「加载中」演示 */
+/* A-03 分页脚：固定 44px；草稿默认「到底啦」，可点切换「加载中」演示 */
 function pageEndHTML(ctx){
   if(ctx==="settings") return "";
   const st=S.pageEnd||"done";
   if(st==="loading") return `<div class="page-end" data-act="toggle-page-end" role="status"><i class="spin" aria-hidden="true"></i>加载中</div>`;
-  return `<div class="page-end done" data-act="toggle-page-end" role="status">已到底</div>`;
+  return `<div class="page-end done" data-act="toggle-page-end" role="status">到底啦</div>`;
 }
 /* A-06 两种空状态 */
 function emptyTrue(kind){
@@ -1823,12 +1821,13 @@ function bindAlbum(){
       dialog({title:"清空回收站？", text:`将永久删除全部 ${n} 个文件，无法恢复`, ok:"清空", danger:true, onOk:()=>{ TRASH=[]; S.select=false; S.sel=new Set(); render(); toast("已清空"); }});
       return;
     }
-    if(act==="open-wipe"){ S.sub="wipe"; render(); return; }
+    if(act==="open-wipe"){ verifyUnlockPin(()=>{ S.sub="wipe"; render(); }); return; }
+    if(act==="save-wipe"){ verifyUnlockPin(()=>{ toast("紧急清除码已保存"); S.sub=null; render(); }); return; }
     if(act==="back-sub"){ S.sub=null; render(); return; }
     if(act==="rename-folder"){ renameFolder(S.folder); return; }
     if(act==="back-folder"){ S.folder=null; resetModes(); render(); return; }
     /* 搜索与多选互斥，切换时两个动画同时进行（§39 第四轮修订） */
-    if(act==="toggle-search"){ if(S.select) return; /* D-04：多选中搜索置灰，不可用 */ toggleSearch(); return; }
+    if(act==="toggle-search"){ if(!S.search&&S.select) exitSelect(); toggleSearch(); return; }
     if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); updSearchDot(); refreshBody(); return; }
     if(act==="toggle-select"){
       if(!S.select&&S.search) toggleSearch();
@@ -1931,14 +1930,30 @@ function deleteSelected(){
 
 /* 统一对话框组件。opts: {title, text?, input?:{value, suffix?, placeholder?}, cancel?="取消", ok?="确定", danger?, onOk(value)}
    onOk 返回字符串 = 行内错误（对话框保持打开）；其它返回值 = 关闭。 */
+function verifyUnlockPin(onPass){
+  dialog({
+    title:"验证解锁码",
+    text:"请输入当前解锁码以继续",
+    input:{value:"", placeholder:"当前解锁码", type:"password", inputmode:"numeric", pattern:"[0-9]*", maxlength:"9", autocomplete:"off"},
+    ok:"继续",
+    onOk:(v)=>{
+      const s=String(v||"").trim();
+      if(!/^\d{4,9}$/.test(s)) return "请输入 4–9 位数字";
+      if(s!==DEMO_PIN) return "解锁码不正确";
+      onPass&&onPass();
+    }
+  });
+}
 function dialog(opts){
   const layer=document.getElementById("layer");
   const wrap=document.createElement("div");
   wrap.className="dlg-back";
   const inp=opts.input;
+  const itype=inp&&inp.type?inp.type:"text";
+  const iattrs=inp?` type="${esc(itype)}" value="${esc(inp.value||"")}" placeholder="${esc(inp.placeholder||"")}" autocomplete="${esc(inp.autocomplete||"off")}"${inp.inputmode?` inputmode="${esc(inp.inputmode)}"`:""}${inp.pattern?` pattern="${esc(inp.pattern)}"`:""}${inp.maxlength?` maxlength="${esc(String(inp.maxlength))}"`:""}`:"";
   wrap.innerHTML=`<div class="dlg${inp?"":" noinput"}" role="alertdialog" aria-modal="true"><h4>${esc(opts.title)}</h4>
     ${opts.text?`<p>${esc(opts.text)}</p>`:""}
-    ${inp?`<div class="din"><input id="dlg-in" type="text" value="${esc(inp.value||"")}" placeholder="${esc(inp.placeholder||"")}" autocomplete="off">${inp.suffix?`<span>${esc(inp.suffix)}</span>`:""}</div>
+    ${inp?`<div class="din"><input id="dlg-in"${iattrs}>${inp.suffix?`<span>${esc(inp.suffix)}</span>`:""}</div>
     <div class="derr" id="dlg-err"></div>`:""}
     <div class="dbtns"><button type="button" data-x="c">${esc(opts.cancel||"取消")}</button><button type="button" data-x="o" class="${opts.danger?"danger":""}">${esc(opts.ok||"确定")}</button></div></div>`;
   layer.appendChild(wrap);
