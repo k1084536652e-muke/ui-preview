@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261030183244"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261031005711"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -349,6 +349,9 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .calc-inner{max-width:560px;margin:0 auto}
 .calc .seg{height:34px;margin:0 0 14px}
 .calc .seg button{font-size:14px}
+/* R9-01：房贷「还款方式」改为 .group 行内小号分段开关（复用 .seg 视觉与滑动，只缩小尺寸） */
+.frow .seg.mini{flex:0 0 auto;width:180px;height:28px;margin:0 0 0 auto;cursor:default}
+.frow .seg.mini button{font-size:12px}
 .chead{display:flex;align-items:flex-end;justify-content:space-between;padding:4px 4px 10px}
 .chead small{display:block;font-size:12px;color:var(--muted);margin-bottom:2px;letter-spacing:.3px}
 .chead b{font-size:22px;font-weight:700;letter-spacing:-.3px}
@@ -552,18 +555,6 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 .selbar.last{bottom:0;height:calc(44px + var(--safe-bottom));padding-bottom:var(--safe-bottom)}
 .selbar .sc{font-size:14px;color:var(--muted);white-space:nowrap}
 .selbar .sc b{color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
-/* A-01 全选：点「已选 N 项」弹出菜单；三态 none/some/all */
-.selbar .sc-btn{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 6px 0 0;margin:0;border:0;background:transparent;font:inherit;color:var(--muted);cursor:pointer;border-radius:8px;-webkit-tap-highlight-color:transparent}
-.selbar .sc-btn:active{opacity:.7}
-.selbar .sc-btn svg.i{width:14px;height:14px;color:var(--faint);transform:rotate(-90deg)}
-.selbar .sc-btn[data-sel-state="all"] b{color:var(--text)}
-.sc-menu{position:absolute;left:calc(var(--safe-left) + 10px);bottom:calc(100% + 8px);min-width:148px;background:var(--sheet);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.28),0 0 0 .5px var(--sep);overflow:hidden;z-index:var(--z-overlay);opacity:0;transform:scale(.94) translateY(6px);transform-origin:bottom left;pointer-events:none;transition:opacity .16s ease,transform .18s cubic-bezier(.2,.9,.3,1)}
-.sc-menu.show{opacity:1;transform:none;pointer-events:auto}
-.sc-menu button{display:block;width:100%;text-align:left;padding:12px 16px;font-size:15px;font-weight:500;color:var(--text);background:transparent;border:0}
-.sc-menu button+button{border-top:.5px solid var(--sep)}
-.sc-menu button:active{background:var(--surface-2)}
-.sc-menu button:disabled{color:var(--faint);opacity:.55}
-.sc-menu button.on{font-weight:650}
 /* A-03 分页态：固定高度，切换文案不抖动 */
 .page-end{height:44px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--faint);font-size:12px;letter-spacing:.2px;flex:0 0 auto;user-select:none}
 .page-end .spin{width:12px;height:12px;border-width:1.5px}
@@ -668,13 +659,12 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
         <label class="row frow" id="fr-amount"><span class="lab">贷款金额</span><input id="loan-amount" inputmode="decimal" placeholder="请输入金额" enterkeyhint="done"><span class="unit">元</span></label>
         <label class="row frow" id="fr-years"><span class="lab">贷款年限</span><input id="loan-years" inputmode="numeric" value="30"><span class="unit">年</span></label>
         <label class="row frow" id="fr-rate"><span class="lab">年利率</span><input id="loan-rate" inputmode="decimal" value="3.10"><span class="unit">%</span></label>
+        <div class="row frow"><span class="lab">还款方式</span><div class="seg mini" id="repayment">
+          <button type="button" class="on" data-rep="equal-payment">等额本息</button>
+          <button type="button" data-rep="equal-principal">等额本金</button>
+        </div></div>
       </div>
       <div class="ferr" id="mortgage-error" hidden></div>
-      <div class="clab">还款方式</div>
-      <div class="seg" id="repayment">
-        <button type="button" class="on" data-rep="equal-payment">等额本息</button>
-        <button type="button" data-rep="equal-principal">等额本金</button>
-      </div>
       <button type="submit" class="cta" id="mortgage-submit">计算</button>
       <div class="res" id="mortgage-result" hidden></div>
     </form>
@@ -685,6 +675,7 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
         <label class="row frow" id="fr-income"><span class="lab">税前月收入</span><input id="tax-income" inputmode="decimal" placeholder="请输入金额"><span class="unit">元</span></label>
         <label class="row frow"><span class="lab">五险一金</span><input id="tax-insurance" inputmode="decimal" value="0"><span class="unit">元</span></label>
         <label class="row frow"><span class="lab">专项附加扣除</span><input id="tax-deduction" inputmode="decimal" value="0"><span class="unit">元</span></label>
+        <label class="row frow"><span class="lab">年终奖收入</span><input id="tax-bonus" inputmode="decimal" value="0"><span class="unit">元</span></label>
       </div>
       <div class="ferr" id="tax-error" hidden></div>
       <button type="submit" class="cta" id="tax-submit">计算</button>
@@ -734,6 +725,9 @@ const I = {
  chevu:'<path d="m18 15-6-6-6 6"/>',
  aa:'<path d="m15 16 2.536-7.328a1.02 1.02 1 0 1 1.928 0L22 16"/><path d="M15.697 14h5.606"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/>',
  checks:'<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+ /* R9-02：Lucide v1.65.0 square-check-big / square-x，ISC License © Lucide Icons and Contributors */
+ selall:'<path d="M21 10.656V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.344"/><path d="m9 11 3 3L22 4"/>',
+ selnone:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
  list:'<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>',
  olist:'<path d="M10 12h11"/><path d="M10 18h11"/><path d="M10 6h11"/><path d="M4 10h2"/><path d="M4 6h1v4"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',
  indent:'<path d="M21 12H11"/><path d="M21 18H11"/><path d="M21 6H11"/><path d="m3 8 4 4-4 4"/>',
@@ -830,15 +824,19 @@ function calculateMortgage({principalYuan,years,annualRatePercent,repayment}){
     throw new RangeError("贷款结果超出可计算范围");
   return {months,firstPayment:roundMoney(firstPayment),monthlyDecrease:roundMoney(monthlyDecrease),totalInterest:roundMoney(totalInterest),totalPayment:roundMoney(totalPayment)};
 }
-function calculateIncomeTax({monthlyIncome,socialInsurance,specialDeduction}){
-  if(![monthlyIncome,socialInsurance,specialDeduction].every(Number.isFinite)||monthlyIncome<0||socialInsurance<0||specialDeduction<0)
+function calculateIncomeTax({monthlyIncome,socialInsurance,specialDeduction,yearEndBonus=0}){
+  if(![monthlyIncome,socialInsurance,specialDeduction,yearEndBonus].every(Number.isFinite)||monthlyIncome<0||socialInsurance<0||specialDeduction<0||yearEndBonus<0)
     throw new RangeError("收入参数无效");
   const taxableIncome=Math.max(0,monthlyIncome-socialInsurance-specialDeduction-5000);
   const bracket=TAX_BRACKETS.find(item=>taxableIncome<=item.limit)||TAX_BRACKETS[TAX_BRACKETS.length-1];
   const tax=taxableIncome*bracket.rate-bracket.deduction;
   const payableTax=roundMoney(Math.max(0,tax));
   const afterTaxIncome=roundMoney(Math.max(0,monthlyIncome-socialInsurance-payableTax));
-  return {taxableIncome:roundMoney(taxableIncome),payableTax,afterTaxIncome};
+  /* R9-01：年终奖单独计税（全年一次性奖金 ÷12 查月度税率表） */
+  const bonusBracket=TAX_BRACKETS.find(item=>yearEndBonus/12<=item.limit)||TAX_BRACKETS[TAX_BRACKETS.length-1];
+  const bonusTax=roundMoney(Math.max(0,yearEndBonus*bonusBracket.rate-bonusBracket.deduction));
+  const bonusAfterTax=roundMoney(Math.max(0,yearEndBonus-bonusTax));
+  return {taxableIncome:roundMoney(taxableIncome),payableTax,afterTaxIncome,bonusTax,bonusAfterTax};
 }
 
 const DEMO_PIN="12345";
@@ -950,7 +948,6 @@ function showView(){
 function aliveItems(){return ITEMS.filter(it=>!it.trash)}
 function filteredItems(){
   let list=aliveItems();
-  if(S.filter==="folder") return [];
   if(S.filter==="photo") list=list.filter(it=>!it.doc&&!it.video);
   else if(S.filter==="video") list=list.filter(it=>it.video);
   else if(S.filter==="doc") list=list.filter(it=>it.doc);
@@ -1068,16 +1065,14 @@ function renderSelbar(instant){
     const state=n===0?"none":(n>=total&&total>0?"all":"some");
     const b=(act,icon,label,danger,d)=>`<button type="button" class="sbtn${danger?" danger":""}" data-act="${act}" ${d===undefined?dis:d}>${ic(icon)}<span>${label}</span></button>`;
     const ren=b("sel-rename","pen","重命名",0,n===1?"":"disabled");
-    const acts= ctx==="trash" ? b("sel-restore","restore","恢复")+b("sel-purge","trash","删除",1)
+    /* R9-02：全选 / 取消全选单按钮，三态 none/some/all 只区分是否已全选；全集为空时禁用 */
+    const tog=b("sel-toggle-all",state==="all"?"selnone":"selall",state==="all"?"取消全选":"全选",0,total?"":"disabled");
+    const acts= tog + (ctx==="trash" ? b("sel-restore","restore","恢复")+b("sel-purge","trash","删除",1)
               : ctx==="folders" ? ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1)
               : ctx==="folder" ? b("sel-addf","folderplus","加入文件夹")+b("sel-out","folderminus","移出")+ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1)
-              : b("sel-addf","folderplus","加入文件夹")+ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1);
-    /* A-01：已选 N 项可点 → 全选/取消全选；三态 none/some/all；N 相对数据全集 */
-    sb.innerHTML=`<button type="button" class="sc sc-btn" data-act="sel-menu" data-sel-state="${state}" aria-haspopup="menu" aria-expanded="false" aria-label="已选 ${n} 项，打开全选菜单">已选 <b>${n}</b> 项${ic("chevu")}</button><div class="sacts">${acts}</div>
-      <div class="sc-menu" id="sc-menu" role="menu" hidden>
-        <button type="button" role="menuitem" data-act="sel-all" ${state==="all"?"disabled":""}>全选${total?`（${total}）`:""}</button>
-        <button type="button" role="menuitem" data-act="sel-none" ${state==="none"?"disabled":""}>取消全选</button>
-      </div>`;
+              : b("sel-addf","folderplus","加入文件夹")+ren+b("sel-export","share","导出")+b("sel-del","trash","删除",1));
+    /* R9-03：「已选 N 项」为纯文字（不再可点、无 ‹） */
+    sb.innerHTML=`<span class="sc">已选 <b>${n}</b> 项</span><div class="sacts">${acts}</div>`;
     const wasShown=!sb.hidden&&sb.classList.contains("show");
     sb.className="selbar"+(S.folder?" last":"")+(wasShown?" show":"");
     sb.hidden=false; root.classList.add("selmode");
@@ -1091,16 +1086,6 @@ function selectableIds(){
   if(ctx==="folders") return FOLDERS.filter(f=>matchQ(f.n)).map(f=>f.id);
   if(ctx==="trash") return TRASH.filter(t=>matchQ(t.name)&&matchF(t)).map(t=>t.id);
   return [];
-}
-function closeSelMenu(){
-  const m=document.getElementById("sc-menu"); if(!m) return;
-  m.classList.remove("show"); m.hidden=true;
-  const b=document.querySelector('#a-sel [data-act="sel-menu"]'); if(b) b.setAttribute("aria-expanded","false");
-}
-function openSelMenu(){
-  const m=document.getElementById("sc-menu"); if(!m) return;
-  m.hidden=false; void m.offsetWidth; m.classList.add("show");
-  const b=document.querySelector('#a-sel [data-act="sel-menu"]'); if(b) b.setAttribute("aria-expanded","true");
 }
 /* 进入 / 退出多选：只切 class、更新顶栏按钮与选择条，不重建内容、不播放 FLIP（§25） */
 function applySelect(){
@@ -1117,7 +1102,6 @@ function applySelect(){
     sbtn.classList.remove("dim");
     updSearchDot();
   }
-  closeSelMenu();
   renderSelbar();
 }
 function markSel(k,on){
@@ -1238,13 +1222,13 @@ function settingsBody(){
           <button type="button" class="row" data-act="open-pin"><span>解锁码</span><span class="v">修改${ic("chev")}</span></button>
           <button type="button" class="row" data-act="open-wipe"><span>紧急清除码</span><span class="v">未配置${ic("chev")}</span></button>
         </div>
-        <button type="button" class="dangerbtn settings-clear" data-act="clear-all">清空全部数据</button>
-        <p class="gf">「清空全部数据」立即删除本机相册内容，与紧急清除码（在计算器输入触发）分开。</p>
         <div class="gh">关于</div>
         <div class="group">
           ${verRowHTML()}
         </div>
         <p class="gf">草稿演示：点按「版本」行可依次查看状态（已是最新 → 发现新版本 → 正在更新 → 更新失败）。</p>
+        <button type="button" class="dangerbtn settings-clear" data-act="clear-all">清空全部数据</button>
+        <p class="gf">「清空全部数据」立即删除本机相册内容，与紧急清除码（在计算器输入触发）分开。</p>
       </div>`;
   }
 
@@ -1269,7 +1253,7 @@ function bindLongPress(root){
     LP.timer=setTimeout(()=>{
       LP.timer=0; LP.suppress=true; LP.key=key; if(DS.track) DS.armed=true;
       try{ navigator.vibrate&&navigator.vibrate(8); }catch(_){}
-      S.select=true; S.sel=new Set([key]); if(S.plus) closePlusMenu(); applySelect();
+      enterSelect([key]);
       const sel=`[data-id="${key}"],[data-folder="${key}"],[data-tid="${key}"]`;
       const n=document.querySelector("#a-body "+sel.split(",").join(",#a-body "));
       if(n&&!matchMedia("(prefers-reduced-motion: reduce)").matches) n.animate([{transform:"scale(1)"},{transform:"scale(.93)"},{transform:"scale(1)"}],{duration:220,easing:"ease-out"});
@@ -1416,8 +1400,7 @@ function segFor(ctx){
   const segBtn=(attr,key,label,cur)=>`<button type="button" data-${attr}="${key}" class="${cur===key?"on":""}">${label}</button>`;
   if(ctx==="settings") return "";
   if(ctx==="folders") return "";
-  const opts=[["all","全部"],["photo","图片"],["video","视频"],["doc","文档"]];
-  if(ctx==="photos") opts.push(["folder","文件夹"]);
+  const opts=[["all","全部"],["photo","图片"],["video","视频"],["doc","文档"]];   /* R9-04：删除「文件夹」筛选项 */
   return `<div class="seg" id="filter-seg">${opts.map(([k,l])=>segBtn("filter",k,l,S.filter)).join("")}</div>`;
 }
 function fcardHTML(f, selecting){
@@ -1454,7 +1437,7 @@ function buildBody(ctx){
   if(ctx==="photos"){
     let html="";
     /* 文件夹横条也参与搜索：每个文件夹单独做 FLIP（横条容器不设 data-flip） */
-    const fl=(S.filter==="all"||S.filter==="folder")?FOLDERS.filter(f=>matchQ(f.n)):[];
+    const fl=S.filter==="all"?FOLDERS.filter(f=>matchQ(f.n)):[];   /* R9-04：文件夹横条只跟随「全部」与关键词 */
     const list=filteredItems();
     if(fl.length){
       html+=`<div class="sec" data-flip="sec-f"><h3>文件夹</h3><button type="button" data-act="goto-folders">全部 ${ic("chev")}</button></div>`;
@@ -1588,6 +1571,12 @@ function updSearchDot(){
 }
 /* 多选 ↔ 搜索互斥且先后执行（§39） */
 function exitSelect(){ if(!S.select) return; S.select=false; S.sel=new Set(); applySelect(); }
+/* R9-06：多选唯一入口；先退出搜索（§39 互斥），长按 / 拖选 / 点多选按钮都走这里 */
+function enterSelect(keys){
+  if(S.search) toggleSearch();
+  if(S.plus) closePlusMenu();
+  S.select=true; S.sel=new Set(keys||[]); applySelect();
+}
 function toggleSearch(){
   const body=document.getElementById("a-body");
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1860,8 +1849,6 @@ function bindAlbum(){
     /* 多选中点文件区域以外的地方 = 退出多选（§42）。例外：顶栏按钮、多选栏、Tab 栏、＋菜单、弹窗 */
     if(S.select&&!S.doc&&curCtx()!=="settings"){
       const ctx=curCtx();
-      const inMenu=e.target.closest("#sc-menu,.sc-btn");
-      if(!inMenu) closeSelMenu();
       const inBody=e.target.closest("#a-body"), inNav=e.target.closest("#a-nav");
       const isTile=e.target.closest(ctx==="folders"?"#a-body [data-folder]":ctx==="trash"?"#a-body [data-tid]":"#a-body .grid [data-id]");
       const isPageEnd=e.target.closest(".page-end");
@@ -1928,9 +1915,7 @@ function bindAlbum(){
         render(); toast("已清空全部数据");
       }}); return; }
     if(act==="toggle-page-end"){ S.pageEnd=S.pageEnd==="loading"?"done":"loading"; refreshBody(); return; }
-    if(act==="sel-menu"){ const m=document.getElementById("sc-menu"); if(!m) return; if(m.classList.contains("show")) closeSelMenu(); else openSelMenu(); return; }
-    if(act==="sel-all"){ const ids=selectableIds(); S.sel=new Set(ids); closeSelMenu(); applySelect(); return; }
-    if(act==="sel-none"){ S.sel=new Set(); closeSelMenu(); applySelect(); return; }
+    if(act==="sel-toggle-all"){ const ids=selectableIds(); S.sel=(ids.length&&S.sel.size>=ids.length)?new Set():new Set(ids); applySelect(); return; }
     if(act==="open-retention"){ S.sub="retention"; render(); return; }
     if(act==="empty-trash"){
       const n=TRASH.length; if(!n) return;
@@ -1946,8 +1931,8 @@ function bindAlbum(){
     if(act==="toggle-search"){ if(!S.search&&S.select) exitSelect(); toggleSearch(); return; }
     if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); updSearchDot(); refreshBody(); return; }
     if(act==="toggle-select"){
-      if(!S.select&&S.search) toggleSearch();
-      S.select=!S.select; S.sel=new Set(); if(S.plus) closePlusMenu(); applySelect(); return; }
+      if(!S.select){ enterSelect(); return; }
+      S.select=false; S.sel=new Set(); if(S.plus) closePlusMenu(); applySelect(); return; }
     if(act==="sel-rename"){
       if(S.sel.size!==1) return;
       const id=[...S.sel][0], ctx=curCtx();
@@ -2347,7 +2332,7 @@ function wireCalc(){
     S.repayment=b.dataset.rep;
     [...rep.querySelectorAll("[data-rep]")].forEach(x=>x.classList.toggle("on",x===b));
   };
-  ["loan-amount","loan-years","loan-rate","tax-income","tax-insurance","tax-deduction"].forEach(id=>{
+  ["loan-amount","loan-years","loan-rate","tax-income","tax-insurance","tax-deduction","tax-bonus"].forEach(id=>{
     const el=document.getElementById(id);
     el.addEventListener("input",()=>{ el.value=sanitizeDecimal(el.value); });
   });
@@ -2393,18 +2378,22 @@ function wireCalc(){
     const income=parseAmount(document.getElementById("tax-income").value);
     const ins=parseAmount(document.getElementById("tax-insurance").value);
     const ded=parseAmount(document.getElementById("tax-deduction").value);
+    const bonus=parseAmount(document.getElementById("tax-bonus").value);
     const err=document.getElementById("tax-error");
     const res=document.getElementById("tax-result");
     err.hidden=true; res.hidden=true;
     if(income===null){ err.textContent="请输入有效的税前月收入"; err.hidden=false; return; }
     if(ins===null||ded===null){ err.textContent="请输入有效的扣除项"; err.hidden=false; return; }
+    if(bonus===null){ err.textContent="请输入有效的年终奖收入"; err.hidden=false; return; }
     try{
-      const out=calculateIncomeTax({monthlyIncome:income,socialInsurance:ins,specialDeduction:ded});
+      const out=calculateIncomeTax({monthlyIncome:income,socialInsurance:ins,specialDeduction:ded,yearEndBonus:bonus});
       res.innerHTML=`<div class="rh"><small>综合所得 · 月度估算</small><b>计算结果</b></div>
         <div class="big"><span>应缴个税</span><div>${fmt(out.payableTax)}<i>元</i></div></div>
         <div class="kv"><span>应纳税所得额</span><b>${fmt(out.taxableIncome)}<i>元</i></b></div>
         <div class="kv"><span>税后收入</span><b>${fmt(out.afterTaxIncome)}<i>元</i></b></div>
-        <p class="note">按现行七级超额累进税率估算，未覆盖年终奖、劳务等特殊情形。</p>`;
+        ${bonus>0?`<div class="kv"><span>年终奖个税（单独计税）</span><b>${fmt(out.bonusTax)}<i>元</i></b></div>
+        <div class="kv"><span>年终奖税后</span><b>${fmt(out.bonusAfterTax)}<i>元</i></b></div>`:""}
+        <p class="note">月度工资按现行七级超额累进税率估算；年终奖按全年一次性奖金单独计税（÷12 查月度税率表）。未覆盖劳务等特殊情形。</p>`;
       res.hidden=false;
     }catch(ex){ err.textContent=ex.message||"计算失败"; err.hidden=false; }
   };
