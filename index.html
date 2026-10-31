@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261031145037"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261031145039"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -169,6 +169,8 @@ svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;str
 .ibtn{width:40px;height:40px;display:grid;place-items:center;color:var(--icon);border-radius:20px;flex:0 0 auto}
 .ibtn.on{color:var(--accent)}
 .ibtn{position:relative}
+/* R10-05：文件夹内没有照片 / 视频可播时，顶栏「播放」按钮禁用（观感与 .tab / .sbtn 的禁用一致） */
+.ibtn:disabled{opacity:.35;cursor:default}
 /* 搜索角标（§40）：有关键词时放大镜下方 5px 红点，展开 / 收起都显示 */
 .sdot{position:absolute;left:50%;bottom:2px;width:5px;height:5px;margin-left:-2.5px;border-radius:3px;background:var(--danger);opacity:0;transform:scale(.3);transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.3,1.3);pointer-events:none}
 .sdot.show{opacity:1;transform:none}
@@ -748,6 +750,9 @@ const I = {
  redo:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>',
  brush:'<path d="m16 22-1-4"/><path d="M19 13.99a1 1 0 0 0 1-1V12a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v.99a1 1 0 0 0 1 1"/><path d="M5 14h14l1.973 6.767A1 1 0 0 1 20 22H4a1 1 0 0 1-.973-1.233z"/><path d="m8 22 1-4"/>',
  minus:'<path d="M5 12h14"/>',
+ /* R10-05：Lucide v1.65.0 play / pause，ISC License © Lucide Icons and Contributors */
+ play:'<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',
+ pause:'<rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/>',
 };
 const ic = (n, cls="") => `<svg class="i ${cls}" viewBox="0 0 24 24">${I[n]}</svg>`;
 
@@ -901,6 +906,7 @@ const S={picking:false,
   sub:null,
   doc:null,
   retention:"30",
+  slideInt:"3",   /* R10-09：幻灯片间隔（秒），设置页「幻灯片间隔」子页可选 2 / 3 / 5 / 8 */
   searchAnim:false, sort:"recent", pageEnd:"done", /* 文档页：{id,title,isNew,mode:"view"|"edit",sheet:bool} */ /* 设置子页：null / "pin" / "wipe" */
   calcPref:(function(){try{return localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
   albumPref:(function(){try{return localStorage.getItem("album-theme")||localStorage.getItem("calc-theme")||"night"}catch(e){return"night"}})(),
@@ -1013,7 +1019,7 @@ function render(opts){
 
   /* ---- 全局顶栏（含原地搜索面板） ---- */
   if(ctx==="settings"&&S.sub){
-    nav.innerHTML=`<div class="nav-row sub"><button type="button" class="back" data-act="back-sub" aria-label="返回">${ic("chevl")}</button><div class="nav-title"><b>${{pin:"解锁码",wipe:"紧急清除码",retention:"回收站保留时间"}[S.sub]}</b></div></div>`;
+    nav.innerHTML=`<div class="nav-row sub"><button type="button" class="back" data-act="back-sub" aria-label="返回">${ic("chevl")}</button><div class="nav-title"><b>${{pin:"解锁码",wipe:"紧急清除码",retention:"回收站保留时间",slideint:"幻灯片间隔"}[S.sub]}</b></div></div>`;
   } else {
     const titles={photos:["首页", `${aliveItems().length} 项`], folders:["文件夹", `${FOLDERS.length} 个`], trash:["回收站", `${TRASH.length} 项`], settings:["设置", ""], folder:[f?f.n:"文件夹", `${folderItems().length} 项`]};
     const [title,count]=titles[ctx];
@@ -1021,6 +1027,7 @@ function render(opts){
     const open=S.searchAnim?!S.search:S.search;
     nav.innerHTML=`<div class="nav-row${S.folder?" sub icons":""}">
       ${S.folder?`<button type="button" class="back" data-act="back-folder" aria-label="返回">${ic("chevl")}</button>`:""}
+      ${S.folder?`<button type="button" class="ibtn" data-act="slideshow" aria-label="幻灯片播放"${slideshowIds().length?"":" disabled"}>${ic("play")}</button>`:""}
       <div class="nav-title"><b>${esc(title)}</b>${count?`<small>${count}</small>`:""}</div>
       ${selectable?`<button type="button" class="ibtn${S.search?" on":""}" data-act="toggle-search" aria-label="搜索${S.q.trim()?"（正在筛选）":""}" aria-pressed="${S.search}">${ic("search")}<i class="sdot${S.q.trim()?" show":""}" aria-hidden="true"></i></button>`:""}
       ${selectable?`<button type="button" class="ibtn${S.select?" on":""}" data-act="toggle-select" aria-label="多选" aria-pressed="${S.select}">${ic("checks")}</button>`:""}
@@ -1195,6 +1202,13 @@ function settingsBody(){
         <div class="group">${["7","30","90","never"].map(k=>`<button type="button" class="row" data-ret="${k}"><span>${retLabel(k)}</span>${S.retention===k?`<span class="ck">${ic("tick")}</span>`:""}</button>`).join("")}</div>
         <p class="gf">到期的文件会在打开应用时自动删除</p>
       </div>`;
+  } else if(S.sub==="slideint"){
+    return `
+      <div class="page subpage">
+        <div class="gh">照片停留时间</div>
+        <div class="group">${["2","3","5","8"].map(k=>`<button type="button" class="row" data-slideint="${k}"><span>${k} 秒</span>${S.slideInt===k?`<span class="ck">${ic("tick")}</span>`:""}</button>`).join("")}</div>
+        <p class="gf">幻灯片播放时每张照片停留的时长；视频自动播放，播完再切下一张，不受此间隔限制</p>
+      </div>`;
   } else if(S.sub==="wipe"){
     return `
       <div class="page subpage">
@@ -1224,6 +1238,7 @@ function settingsBody(){
         <div class="gh">显示</div>
         <div class="group">
           <button type="button" class="row" data-act="toggle-names"><span>显示文件名称</span><span class="toggle ${S.showNames?"on":""}" id="names-tog"></span></button>
+          <button type="button" class="row" data-act="open-slideint"><span>幻灯片间隔</span><span class="v">${S.slideInt} 秒${ic("chev")}</span></button>
         </div>
         <div class="gh">回收站</div>
         <div class="group">
@@ -1870,6 +1885,9 @@ function bindAlbum(){
     }
     const rt=e.target.closest("[data-ret]");
     if(rt){ S.retention=rt.dataset.ret; render(); return; }
+    /* R10-09：「幻灯片间隔」子页选项，写法同「回收站保留时间」 */
+    const si=e.target.closest("[data-slideint]");
+    if(si){ S.slideInt=si.dataset.slideint; render(); return; }
     const t=e.target.closest("[data-act],[data-tab],[data-theme-set],[data-filter],[data-sort],[data-folder],[data-id],[data-tid],[data-restore],[data-purge]");
     if(!t) return;
     if(t.dataset.themeSet!==undefined){ const sg=t.closest(".seg.slide"); if(sg){ segSelect(sg,[...sg.querySelectorAll("button")].indexOf(t)); return; } setThemePref(t.dataset.kind||"album", t.dataset.themeSet); render(); return; }
@@ -1931,6 +1949,7 @@ function bindAlbum(){
     if(act==="toggle-page-end"){ S.pageEnd=S.pageEnd==="loading"?"done":"loading"; refreshBody(); return; }
     if(act==="sel-toggle-all"){ const ids=selectableIds(); S.sel=(ids.length&&S.sel.size>=ids.length)?new Set():new Set(ids); applySelect(); return; }
     if(act==="open-retention"){ S.sub="retention"; render(); return; }
+    if(act==="open-slideint"){ S.sub="slideint"; render(); return; }   /* R10-09：设置「显示」分组 → 幻灯片间隔子页 */
     if(act==="empty-trash"){
       const n=TRASH.length; if(!n) return;
       dialog({title:"清空回收站？", text:`将永久删除全部 ${n} 个文件，无法恢复`, ok:"清空", danger:true, onOk:()=>{ TRASH=[]; S.select=false; S.sel=new Set(); render(); toast("已清空"); }});
@@ -1941,6 +1960,13 @@ function bindAlbum(){
     if(act==="back-sub"){ navBackSub(); return; }
     if(act==="rename-folder"){ renameFolder(S.folder); return; }
     if(act==="back-folder"){ navBackFolder(); return; }
+    if(act==="slideshow"){   /* R10-05：文件夹顶栏「播放」→ 幻灯片；多选中点它先退出多选再开始 */
+      if(S.select) exitSelect();
+      const ids=slideshowIds();
+      if(!ids.length){ toast("没有可播放的照片或视频"); return; }
+      openViewer(ids[0],{slideshow:true});
+      return;
+    }
     /* 搜索与多选互斥，切换时两个动画同时进行（§39 第四轮修订） */
     if(act==="toggle-search"){ if(!S.search&&S.select) exitSelect(); toggleSearch(); return; }
     if(act==="clear-q"){ S.q=""; const q=document.getElementById("q"); if(q){ q.value=""; q.focus(); } const c=document.querySelector("#sbox .clr"); if(c) c.classList.remove("show"); updSearchDot(); refreshBody(); return; }
@@ -2252,6 +2278,8 @@ function viewerItems(id){
   const ids=src.filter(it=>!it.doc).map(it=>it.id);
   return ids.includes(id)?ids:[id];   /* 兜底：当前项被筛选排除时只显示这一张（不循环、不越界） */
 }
+/* R10-05：幻灯片播放列表 = 文件夹详情当前列表同口径（关键词 / 筛选项，与 viewerItems 一致），去掉文档；从第一项开始 */
+function slideshowIds(){ return folderItems().filter(it=>matchQ(it.name)&&matchF(it)).filter(it=>!it.doc).map(it=>it.id); }
 /* 槽位里的 muted 只给「封面用」的相邻槽位（相邻项不挂 Plyr）；当前槽位由 renderSlots() 在挂 Plyr 前摘掉，见下 */
 function slotHTML(it){
   if(!it) return `<div class="vslot"></div>`;
@@ -2294,18 +2322,23 @@ function mountPlyr(host, video, stage){
   stage.addEventListener("dblclick",e=>{ if(sideOf(e.clientX)) e.stopPropagation(); },true);
   return player;
 }
-function openViewer(id){
+function openViewer(id, opts){
   const it0=findItem(id);
   if(!it0||it0.doc){ toast(it0?("文档："+it0.name):"无法打开"); return; }
   const items=viewerItems(id);
   let idx=Math.max(0,items.indexOf(id));
+  /* R10-05/09：幻灯片就是本查看器的「幻灯片模式」——翻页仍走 v._pager.go(1)，过渡与间隙与 R10-06/07 完全相同；
+     只换播放规则与顶栏：左侧「退出」+ 右侧「暂停 / 继续」，默认隐藏 */
+  const SS=!!(opts&&opts.slideshow), SI=Math.max(1,+S.slideInt||3);   /* SI = 幻灯片间隔（秒） */
   const layer=document.getElementById("layer");
   const v=document.createElement("div");
   v.className="viewer vpager";
   v.innerHTML=`<div class="vrail"><div class="vtrack"></div></div>
-    <div class="vbar"><button type="button" class="vbtn" data-x="back">${ic("chevl")}返回</button>
+    <div class="vbar">${SS?`<button type="button" class="vbtn" data-x="back">${ic("x")}退出</button>`
+    :`<button type="button" class="vbtn" data-x="back">${ic("chevl")}返回</button>`}
     <b></b>
-    <button type="button" class="vbtn" data-x="ren">${ic("pen")}重命名</button></div>`;
+    ${SS?`<button type="button" class="vbtn" data-x="pause" aria-label="暂停">${ic("pause")}</button>`
+    :`<button type="button" class="vbtn" data-x="ren">${ic("pen")}重命名</button>`}</div>`;
   layer.appendChild(v);
   const rail=v.querySelector(".vrail"), track=v.querySelector(".vtrack"), bar=v.querySelector(".vbar");
   const cur=()=>findItem(items[idx]);
@@ -2314,6 +2347,7 @@ function openViewer(id){
   const Z={s:1,tx:0,ty:0};   /* R10-10 当前照片的缩放 / 平移；s=1 即原始适配大小 */
   let player=null, mode=null, moved=false, dx=0, x0=0, y0=0, t0=0, panX=0, panY=0, pinch=null;
   let lastTap=0, lastX=0, lastY=0, tapSwallow=false;   /* 横拖起手于大播放按钮时，吞掉松手后那一次 click */
+  let ssTimer=0, ssPaused=false;   /* R10-05：幻灯片照片停留计时 / 暂停状态（播到最后一项也进暂停） */
   const P=new Map();   /* 活动指针 id → {x,y}：一指翻页 / 放大后平移，两指捏合 */
   /* 轨道定位：x=0 表示当前槽位正对屏幕；槽位步长 = 屏宽 + 间隙 */
   function place(x,anim){
@@ -2338,6 +2372,7 @@ function openViewer(id){
   /* R10-10：缩放到 s（以屏幕坐标 fx / fy 为不动点）；最大 4 倍，不小于适配大小（捏合过程中 soft 允许阻尼回弹）；
      放大后平移限制在图片边界内；只要不是适配大小 → 顶栏自动淡出 */
   function zoomTo(s,fx,fy,anim,soft){
+    if(SS) return;   /* R10-05：幻灯片模式下照片不支持缩放（双击 / 捏合都不生效），以免和停留计时冲突 */
     const im=curImg(); if(!im) return;
     if(s>1) loadAspect(im);
     const r=rail.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
@@ -2355,7 +2390,7 @@ function openViewer(id){
   function resetZoom(){
     const im=curImg();
     if(im){ Z.s=1; Z.tx=0; Z.ty=0; im.style.transition="none"; im.style.transform=""; }
-    v.classList.remove("vbar-hidden");
+    if(!SS) v.classList.remove("vbar-hidden");   /* R10-05：幻灯片模式的控制条只由点屏幕控制，翻页不自动弹出 */
   }
   /* R10-10：双击放大到约 2.5 倍（以点击点为中心）；放大状态下双击回到适配大小并恢复顶栏 */
   function doubleTap(x,y){ if(Z.s>1.001) zoomTo(1,null,null,true); else zoomTo(2.5,x,y,true); }
@@ -2374,14 +2409,41 @@ function openViewer(id){
        必须在这里先取消静音——Plyr 构造时会把 media 的 muted 属性读成 config.muted=true，控件随即显示静音图标、
        点播放没声音。去属性 + muted=false 后与改前 openVideo 一致：默认有声音、音量图标为非静音。翻页时同一路径生效。 */
     if(video){ video.muted=false; video.removeAttribute("muted"); }
-    if(video&&window.Plyr){ player=mountPlyr(v,video,slot.querySelector(".vstage")); v._player=player; }
+    /* R10-05：幻灯片模式的视频只做自动播放——不挂 Plyr（Plyr 控件层会抢走「点屏幕切换控制条」的单击），也不出原生控件 */
+    if(SS){ if(video) video.removeAttribute("controls"); }
+    else if(video&&window.Plyr){ player=mountPlyr(v,video,slot.querySelector(".vstage")); v._player=player; }
     else if(video) video.controls=true;   /* 无 Plyr 时退回原生控件 */
     syncBar();
   }
   function onChangePage(){
     resetZoom();
     renderSlots();
+    if(SS) ssArm();   /* R10-05：翻页（含手动滑）后按当前项重新计时 / 自动播放 */
     if(typeof pager.onChange==="function") pager.onChange(idx,cur());
+  }
+  /* R10-05/09：幻灯片推进——照片停「幻灯片间隔」秒后 go(1)；视频自动播放，播完（ended）再 go(1)，不受间隔限制；
+     到最后一项不再前进：停在最后一项、进入暂停并显示控制条（不循环，用户可退出）。 */
+  function ssBar(show){ v.classList.toggle("vbar-hidden",!show); }
+  function ssIcon(){ const b=bar.querySelector('[data-x="pause"]'); if(!b) return; b.innerHTML=ic(ssPaused?"play":"pause"); b.setAttribute("aria-label",ssPaused?"继续":"暂停"); }
+  function ssClear(){ if(ssTimer){ clearTimeout(ssTimer); ssTimer=0; } }
+  function ssVideo(){ const s=track.children[1]; return s?s.querySelector("video"):null; }
+  function ssStop(){ ssClear(); const vd=ssVideo(); if(vd){ try{ vd.onended=null; vd.pause(); }catch(_){} } }
+  function ssNext(){
+    if(idx>=items.length-1){ ssPaused=true; ssBar(true); ssIcon(); return; }   /* 最后一项播完：停下并露出控制条 */
+    slideBy(1).then(done=>{ if(!done) ssArm(); });   /* 动画被打断（正在手动翻页 / 已是最后一项）时补一次，避免卡住 */
+  }
+  function ssArm(){
+    ssClear();
+    if(ssPaused) return;
+    const it=cur(); if(!it) return;
+    if(it.video){
+      const vd=ssVideo(); if(!vd) return;
+      vd.loop=false;
+      vd.onended=()=>{ vd.onended=null; ssNext(); };
+      const pr=vd.play();
+      /* 浏览器拒绝有声自动播放：退为静音再播（幻灯片不做手势解锁音频） */
+      if(pr&&pr.catch) pr.catch(()=>{ vd.muted=true; const p2=vd.play(); if(p2&&p2.catch) p2.catch(()=>{}); });
+    } else ssTimer=setTimeout(()=>{ ssTimer=0; ssNext(); },SI*1000);
   }
   /* 切换一屏；手势与程序调用（2b 幻灯片用 v._pager.go(±1)）走同一条过渡与同一个间隙 */
   /* 切换过渡（300ms）期间又按下开始拖动：先把上一次切换「结算」掉——清定时器、同步 idx 变化 + renderSlots 归位，
@@ -2428,6 +2490,7 @@ function openViewer(id){
     mode=null; moved=false; dx=0; x0=e.clientX; y0=e.clientY; t0=performance.now();
   },{passive:true});
   function startPinch(){
+    if(SS) return;   /* R10-05：幻灯片模式不支持捏合缩放 */
     const im=curImg();
     if(!im||(cur()&&cur().video)) return;   /* 只有照片支持缩放 */
     if(mode==="page") place(0,true);
@@ -2492,6 +2555,8 @@ function openViewer(id){
     /* R10-06：位移过半，或快速甩动（速度阈值沿用 EB_VEL=0.45 px/ms 且方向与位移一致）→ 切换，否则回弹 */
     if(mode==="page"&&moved&&canSwitch&&(Math.abs(dx)>w/2||(Math.abs(dx)>28&&Math.abs(vel)>=EB_VEL&&Math.sign(vel)===Math.sign(dx)))) slideBy(dir);
     else if(mode==="page"&&moved) place(0,true);
+    /* R10-05：幻灯片模式单击屏幕（未拖动）= 显示 / 隐藏控制条；本模式不缩放、不判双击 */
+    if(SS&&!moved){ ssBar(v.classList.contains("vbar-hidden")); mode=null; moved=false; dx=0; return; }
     /* 单击 / 双击：判定窗口 300ms（与视频 ±10 秒一致）；不动才算点击，横拖后不误触发 */
     if(!moved&&!(cur()&&cur().video)){
       const now=performance.now();
@@ -2510,6 +2575,7 @@ function openViewer(id){
   },true);
   function close(){
     if(slideTimer){ clearTimeout(slideTimer); slideTimer=0; slideDir=0; slideResolve=null; }   /* 关窗后不再有悬空的切换结算 */
+    ssStop();   /* R10-05：退出时清掉停留计时器并暂停视频，不留后台推进 */
     track.querySelectorAll("video").forEach(x=>{ try{ x.pause(); }catch(_){} });
     try{ player&&player.destroy(); }catch(_){}
     v.remove();
@@ -2518,6 +2584,11 @@ function openViewer(id){
     const b=e.target.closest("[data-x]");
     if(!b) return;
     if(b.dataset.x==="back"){ close(); return; }
+    if(b.dataset.x==="pause"){   /* R10-05：暂停 / 继续——照片停表、视频暂停；继续时当前项重新计时 / 续播 */
+      ssPaused=!ssPaused; ssIcon();
+      if(ssPaused) ssStop(); else ssArm();
+      return;
+    }
     if(b.dataset.x==="ren"){   /* 重命名作用于「当前」项，文件名随翻页更新 */
       const it=cur(); if(!it) return;
       const {base,ext}=splitName(it.name), def=it.video?".mp4":".jpg";
@@ -2530,6 +2601,7 @@ function openViewer(id){
     }
   });
   renderSlots();
+  if(SS){ ssBar(false); ssIcon(); ssArm(); }   /* R10-05：幻灯片默认不显示控制条，从第一项开始播 */
   window.__pager={   /* 验收调试（只读查询）：当前 index / items 的 id 列表 / 当前 scale / 轨道 transform */
     get index(){ return idx; },
     get ids(){ return items.slice(); },
@@ -2537,6 +2609,9 @@ function openViewer(id){
     get transform(){ return track.style.transform; },
     get gap(){ return PAGER_GAP; },
     get slots(){ return [...track.children].map(s=>s.dataset.slot||""); },
+    get slideshow(){ return SS; },
+    get paused(){ return ssPaused; },
+    get interval(){ return SI; },
     go:slideBy,
     zoom:(s,fx,fy)=>zoomTo(s,fx,fy,true,true)
   };
