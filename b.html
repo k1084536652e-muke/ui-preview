@@ -10,12 +10,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="计算器B">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261031145039"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261031231155"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest-b.webmanifest">
-<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=10">
-<title>房贷计算器 · 商业贷款与个税估算</title>
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=11">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=11">
+<title>贷税计算 · 商业贷款与个税估算</title>
 <!-- Plyr（MIT，https://github.com/sampotts/plyr）本地内置，离线可用，不依赖 CDN -->
 <link rel="stylesheet" href="vendor/plyr/plyr.css">
 <script src="vendor/plyr/plyr.min.js"></script>
@@ -210,6 +210,10 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
   padding-left:var(--safe-left);padding-right:var(--safe-right)}
 /* 搜索面板为覆盖层；打开时预留其高度并同步补偿 scrollTop，网格不位移（§25） */
 .scroll.reserve{padding-top:calc(6px + var(--sbox-h,0px))}
+/* R11-04：内容比一屏短时（文件夹详情 / 回收站常见）scrollTop 补偿会被 clamp 补不满面板高度，
+   用 --sbox-tail 在内容末尾补出缺的那截可滚动高度，补偿才能真正落到 scrollTop 上（列表一像素不动，被盖住的行下拉可见）
+   —— 首页内容够长、缺额为 0，与改前完全一致（不再用 transform 上移内容，被盖住的行才滚得出来） */
+.scroll.reserve::after{content:"";display:block;height:var(--sbox-tail,0px)}
 .scroll.notab{padding-bottom:calc(var(--safe-bottom) + 44px + 24px)}
 .sec{display:flex;align-items:center;justify-content:space-between;padding:8px 16px}
 .sec h3{font-size:13px;font-weight:650;color:var(--muted);letter-spacing:.2px}
@@ -655,10 +659,10 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
 <body>
 <div id="sbplate" aria-hidden="true"></div>
 <!-- ========== 计算器（解锁前的伪装页） ========== -->
-<section class="view" id="v-calc" aria-label="房贷计算器">
+<section class="view" id="v-calc" aria-label="贷税计算">
   <div class="topback" aria-hidden="true"></div>
   <header class="nav"><div class="nav-row three">
-    <span></span><div class="mid" id="calc-title">房贷计算</div>
+    <span></span><div class="mid" id="calc-title">贷税计算</div>   <!-- R11-01：固定显示 App 名，不随分段切换 -->
     <span class="r"></span>
   </div></header>
   <main class="calc"><div class="calc-inner">
@@ -1009,7 +1013,8 @@ function render(opts){
   const overlay=document.getElementById("a-overlay");
   if(!(S.plus&&overlay.dataset.plusBuilt&&!S.doc)){ overlay.innerHTML=""; delete overlay.dataset.plusBuilt; overlay.classList.remove("is-open","closing"); }
   body.style.paddingBottom="";
-  body.style.removeProperty("--sbox-h");
+  const keepTop=body.scrollTop;   /* R11-04：搜索开着时 scrollTop 就是补偿量，清掉 --sbox-tail 会被 clamp，先记下来重建后放回 */
+  body.style.removeProperty("--sbox-h"); body.style.removeProperty("--sbox-tail");
 
   if(S.doc){ renderSelbar(true); renderDoc(nav,body,bar,overlay); bindAlbum(); return; }
 
@@ -1025,12 +1030,13 @@ function render(opts){
     const [title,count]=titles[ctx];
     const selectable=ctx!=="settings";
     const open=S.searchAnim?!S.search:S.search;
+    /* R11-03：播放移到「多选」之后（顺序 放大镜 → 多选 → 播放 → 重命名），按钮本身样式 / 禁用逻辑不变 */
     nav.innerHTML=`<div class="nav-row${S.folder?" sub icons":""}">
       ${S.folder?`<button type="button" class="back" data-act="back-folder" aria-label="返回">${ic("chevl")}</button>`:""}
-      ${S.folder?`<button type="button" class="ibtn" data-act="slideshow" aria-label="幻灯片播放"${slideshowIds().length?"":" disabled"}>${ic("play")}</button>`:""}
       <div class="nav-title"><b>${esc(title)}</b>${count?`<small>${count}</small>`:""}</div>
       ${selectable?`<button type="button" class="ibtn${S.search?" on":""}" data-act="toggle-search" aria-label="搜索${S.q.trim()?"（正在筛选）":""}" aria-pressed="${S.search}">${ic("search")}<i class="sdot${S.q.trim()?" show":""}" aria-hidden="true"></i></button>`:""}
       ${selectable?`<button type="button" class="ibtn${S.select?" on":""}" data-act="toggle-select" aria-label="多选" aria-pressed="${S.select}">${ic("checks")}</button>`:""}
+      ${S.folder?`<button type="button" class="ibtn" data-act="slideshow" aria-label="幻灯片播放"${slideshowIds().length?"":" disabled"}>${ic("play")}</button>`:""}
       ${ctx==="trash"&&TRASH.length?`<button type="button" class="ibtn danger" data-act="empty-trash" aria-label="清空回收站">${ic("brush")}</button>`:""}
       ${S.folder?`<button type="button" class="ibtn" data-act="rename-folder" aria-label="重命名文件夹">${ic("pen")}</button>`:`<button type="button" class="ibtn" data-act="lock" aria-label="锁定">${ic("lock")}</button>`}
     </div>
@@ -1045,6 +1051,7 @@ function render(opts){
   body.className="scroll"+(S.folder?" notab":"")+(S.select&&ctx!=="settings"?" selecting":"")+(sOpen?" reserve":"");
   if(sOpen) body.style.setProperty("--sbox-h", sboxH()+"px");
   if(!(opts&&opts.keepBody)){ const st=body.scrollTop; body.innerHTML=buildBody(ctx); if(opts&&opts.keepScroll) body.scrollTop=st; }
+  if(sOpen) sboxTail(body, keepTop);   /* R11-04：重建后把补偿量放回去（内容不足一屏时由 --sbox-tail 撑住，不留上一次的旧值） */
 
   renderSelbar();
 
@@ -1127,6 +1134,16 @@ function markSel(k,on){
   document.querySelectorAll(`#a-body [data-id="${k}"],#a-body [data-folder="${k}"],#a-body [data-tid="${k}"]`).forEach(el=>el.classList.toggle("sel",on));
 }
 function sboxH(){ const w=document.querySelector("#sbox .search-wrap"); return w?w.offsetHeight:0; }
+/* R11-04：把 scrollTop 补偿落到实处——内容不足一屏时给可滚动高度补出缺的那截（--sbox-tail），
+   首页内容够长时缺额为 0、不写变量，与改前完全一致。scrollHeight 本身会被 clamp 到 clientHeight，
+   所以先塞一个够大的 tail（PROBE）量出内容真实底边，再换算成精确缺额（不写死、不迭代）。 */
+function sboxTail(body, target){
+  const PROBE=99999;
+  body.style.setProperty("--sbox-tail", PROBE+"px");
+  const need=Math.max(0, target+body.clientHeight-(body.scrollHeight-PROBE));
+  if(need) body.style.setProperty("--sbox-tail", need+"px"); else body.style.removeProperty("--sbox-tail");
+  body.scrollTop=target;
+}
 function renderPlusLayer(opts, overlay, bar){
     if(S.plus){
     if(!overlay.dataset.plusBuilt){
@@ -1380,6 +1397,7 @@ function refreshBody(){
   const near=r=>r.bottom>br.top-120&&r.top<br.bottom+120;
   const before=new Map();
   if(!reduce) flipEls(body).forEach(el=>{ if(el.classList.contains("flip-ghost")) return; const r=el.getBoundingClientRect(); if(near(r)) before.set(flipKey(el),{el,r}); });
+  body.style.removeProperty("--sbox-tail");   /* R11-04：内容变了就按新高度重新 clamp（与首页同一口径：结果变少时落到面板下方、看得见） */
   body.innerHTML=buildBody(curCtx());
   if(!reduce){
     const seen=new Set();
@@ -1616,7 +1634,8 @@ function toggleSearch(){
       if(!S.search) return;
       box.classList.add("open");
       body.style.setProperty("--sbox-h",H+"px");
-      const st=body.scrollTop; body.classList.add("reserve"); body.scrollTop=st+H;
+      /* R11-04：文件夹详情 / 回收站的内容常常不足一屏，scrollTop 补不满 H 的部分由 --sbox-tail 补足可滚动高度（见 sboxTail） */
+      const st=body.scrollTop; body.classList.add("reserve"); sboxTail(body,st+H);
       const q=document.getElementById("q"); q&&q.focus({preventScroll:true});
     });
     return;
@@ -1631,7 +1650,7 @@ function toggleSearch(){
   if(hadQuery){ body.innerHTML=buildBody(curCtx()); body.scrollTop=H; if(S.select) S.sel.forEach(k=>markSel(k,true)); }
   box&&box.classList.remove("open");
   const st=body.scrollTop, shift=Math.max(0,H-st);
-  body.classList.remove("reserve"); body.style.removeProperty("--sbox-h"); body.scrollTop=Math.max(0,st-H);
+  body.classList.remove("reserve"); body.style.removeProperty("--sbox-h"); body.style.removeProperty("--sbox-tail"); body.scrollTop=Math.max(0,st-H);
   /* 只有在列表顶部（scrollTop < 面板高度）时，内容会随面板收起同步上移，不是 FLIP */
   if(shift&&!reduce) [...body.children].forEach(el=>el.animate([{transform:`translateY(${shift}px)`},{transform:"none"}],{duration:360,easing:"cubic-bezier(.2,.8,.2,1)"}));
   setTimeout(()=>{ if(!S.search&&S.view==="album"&&!S.doc) render({keepBody:true}); },400);
@@ -2327,6 +2346,9 @@ function openViewer(id, opts){
   if(!it0||it0.doc){ toast(it0?("文档："+it0.name):"无法打开"); return; }
   const items=viewerItems(id);
   let idx=Math.max(0,items.indexOf(id));
+  /* R11-05：打开时快照「从哪个页面进来的」（首页 / 搜索结果 / 文件夹详情 / 回收站），关闭时据此回到该页，
+     不依赖关闭时的 S 推断（查看器打开期间 S.tab / S.folder 理论上不会变，这里只是把它钉死） */
+  const from={tab:S.tab,folder:S.folder};
   /* R10-05/09：幻灯片就是本查看器的「幻灯片模式」——翻页仍走 v._pager.go(1)，过渡与间隙与 R10-06/07 完全相同；
      只换播放规则与顶栏：左侧「退出」+ 右侧「暂停 / 继续」，默认隐藏 */
   const SS=!!(opts&&opts.slideshow), SI=Math.max(1,+S.slideInt||3);   /* SI = 幻灯片间隔（秒） */
@@ -2349,6 +2371,56 @@ function openViewer(id, opts){
   let lastTap=0, lastX=0, lastY=0, tapSwallow=false;   /* 横拖起手于大播放按钮时，吞掉松手后那一次 click */
   let ssTimer=0, ssPaused=false;   /* R10-05：幻灯片照片停留计时 / 暂停状态（播到最后一项也进暂停） */
   const P=new Map();   /* 活动指针 id → {x,y}：一指翻页 / 放大后平移，两指捏合 */
+  /* R11-05：下滑退出（对齐 iOS 相册）。跟手作用在当前 .vslot 的 transform 上 —— 与 .vtrack（翻页）、.img（缩放）
+     都不是同一个元素，三者互不抢；只动 transform / opacity，不改 left/top/width/height。外壳的黑色背景同步变淡，
+     露出下面那一页相册（查看器本来就是叠在相册页之上的覆盖层），顶栏淡出。 */
+  const D={on:false,dy:0,t:0};
+  const DH=()=>rail.clientHeight||innerHeight;
+  const curSlot=()=>track.children[1];
+  const dBarBase=()=>v.classList.contains("vbar-hidden")||v.classList.contains("chrome-hidden")?0:1;   /* 本来隐藏的控制条不因下滑而冒出来 */
+  function dismissSet(dy){
+    const slot=curSlot(); if(!slot) return;
+    if(!D.on){ ssClear(); const vd=ssVideo(); if(vd) vd.onended=null; }   /* R11-05：进入跟手先停幻灯片停留计时（连同视频播完的推进），手指按住时不会在手下翻页 */
+    const p=Math.min(dy/DH(),1);
+    D.on=true; D.dy=dy;
+    slot.style.transition="none";
+    slot.style.transform="translate3d(0,"+dy+"px,0) scale("+(1-p*0.35)+")";
+    v.style.transition="none";
+    v.style.backgroundColor="rgba(0,0,0,"+(1-p*0.6)+")";
+    bar.style.transition="none"; bar.style.opacity=String(dBarBase()*(1-Math.min(p/0.3,1)));
+  }
+  /* 未过阈值 / pointercancel：带过渡回弹原位，顶栏与背景复原 */
+  function dismissClear(anim){
+    const slot=curSlot();
+    D.on=false; D.dy=0;
+    if(slot){ slot.style.transition=anim&&!noMotion()?"transform .28s cubic-bezier(.2,.9,.3,1)":"none"; slot.style.transform=""; slot.style.opacity=""; }
+    v.style.transition=anim&&!noMotion()?"background-color .28s ease":"none";
+    v.style.backgroundColor="rgba(0,0,0,1)";
+    bar.style.transition=anim?"opacity .3s ease":"none"; bar.style.opacity="";
+    if(SS) ssArm();   /* R11-05：回弹后按当前项重新计时（与 R10-05「手动翻页后重新计时」同一口径） */
+    clearTimeout(D.t);
+    D.t=setTimeout(()=>{   /* 过渡结束后清掉内联值，回到 CSS（.viewer 的 #000 / .vbar-hidden 等类名规则） */
+      if(D.on) return;
+      v.style.removeProperty("transition"); v.style.removeProperty("background-color");
+      bar.style.removeProperty("transition"); bar.style.removeProperty("opacity");
+    },noMotion()?0:300);
+  }
+  /* 过阈值：继续缩小淡出，然后走与「返回」完全相同的 close() */
+  function dismissOut(){
+    const slot=curSlot(), H=DH();
+    D.on=false;
+    if(slot){
+      slot.style.transition=noMotion()?"none":"transform .2s ease-out, opacity .2s ease-out";
+      slot.style.transform="translate3d(0,"+(D.dy+H*0.12)+"px,0) scale(.78)";
+      slot.style.opacity="0";
+    }
+    v.style.transition=noMotion()?"none":"background-color .2s ease-out";
+    v.style.backgroundColor="rgba(0,0,0,0)";
+    D.dy=0;
+    clearTimeout(D.t);
+    D.t=setTimeout(close,noMotion()?0:180);
+  }
+
   /* 轨道定位：x=0 表示当前槽位正对屏幕；槽位步长 = 屏宽 + 间隙 */
   function place(x,anim){
     track.style.transition=anim&&!noMotion()?PAGER_T:"none";
@@ -2494,6 +2566,7 @@ function openViewer(id, opts){
     const im=curImg();
     if(!im||(cur()&&cur().video)) return;   /* 只有照片支持缩放 */
     if(mode==="page") place(0,true);
+    if(mode==="dismiss") dismissClear(false);   /* R11-05：下滑中途落下第二指 → 归位后按双指缩放处理 */
     mode="pinch"; moved=true; loadAspect(im);
     const [a,b]=[...P.values()];
     pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,s:Z.s};
@@ -2515,11 +2588,12 @@ function openViewer(id, opts){
       if(Math.hypot(ax,ay)<8) return;
       moved=true;
       if(Z.s>1.001){ mode="pan"; panX=Z.tx; panY=Z.ty; }   /* 放大状态：单指拖动平移，不触发翻页 */
-      else if(Math.abs(ay)>Math.abs(ax)*1.15) mode="vertical";   /* 竖向为主的拖动不翻页 */
+      else if(Math.abs(ay)>Math.abs(ax)*1.15) mode=ay>0?"dismiss":"vertical";   /* 竖向为主的拖动不翻页；向下（R11-05）→ 下滑退出，向上仍什么都不做 */
       else mode="page";
     }
     if(mode==="vertical") return;
     if(e.cancelable) e.preventDefault();
+    if(mode==="dismiss"){ dismissSet(Math.max(0,ay)); return; }   /* R11-05：跟手下移 + 缩小（上滑 dy 夹到 0，不动） */
     if(mode==="pan"){
       const im=curImg(); if(!im) return;
       const r=rail.getBoundingClientRect(), box=imgBox(im);
@@ -2548,6 +2622,14 @@ function openViewer(id, opts){
     /* pointercancel（系统手势 / 触摸被接管）：只回弹归位，绝不触发切换，也不参与双击判定 */
     if(cancelled){
       if(mode==="page"&&moved) place(0,true);
+      if(mode==="dismiss") dismissClear(true);   /* R11-05：取消一律回弹，不退出 */
+      mode=null; moved=false; dx=0; return;
+    }
+    /* R11-05：下滑退出判定——下移 > 屏高 15%，或下移 > 28px 且速度 ≥ EB_VEL（与翻页同一阈值口径）→ 退出；否则回弹 */
+    if(mode==="dismiss"){
+      const dtY=Math.max(1,performance.now()-t0), vely=D.dy/dtY, h=DH();
+      tapSwallow=true;   /* 拖过：吞掉松手后落在大播放按钮上的那次 click */
+      if(D.dy>h*0.15||(D.dy>28&&vely>=EB_VEL)) dismissOut(); else dismissClear(true);
       mode=null; moved=false; dx=0; return;
     }
     const dt=Math.max(1,performance.now()-t0), vel=dx/dt, w=W(), dir=dx<0?1:-1;
@@ -2575,10 +2657,13 @@ function openViewer(id, opts){
   },true);
   function close(){
     if(slideTimer){ clearTimeout(slideTimer); slideTimer=0; slideDir=0; slideResolve=null; }   /* 关窗后不再有悬空的切换结算 */
+    clearTimeout(D.t); D.on=false; D.dy=0;   /* R11-05：下滑退出的收尾定时器一并清掉 */
     ssStop();   /* R10-05：退出时清掉停留计时器并暂停视频，不留后台推进 */
     track.querySelectorAll("video").forEach(x=>{ try{ x.pause(); }catch(_){} });
     try{ player&&player.destroy(); }catch(_){}
     v.remove();
+    /* R11-05：回到进入查看器前的那一页（首页 / 搜索结果 / 文件夹详情 / 回收站）——按打开时的快照，不靠关闭时的 S 推断 */
+    if(S.tab!==from.tab||S.folder!==from.folder){ S.tab=from.tab; S.folder=from.folder; render(); }
   }
   v.addEventListener("click",e=>{
     const b=e.target.closest("[data-x]");
@@ -2612,6 +2697,9 @@ function openViewer(id, opts){
     get slideshow(){ return SS; },
     get paused(){ return ssPaused; },
     get interval(){ return SI; },
+    /* R11-05：下滑退出状态（只读）——active=正在跟手，dy=当前下移距离，scale=当前槽位缩放（1 即未动） */
+    get dismiss(){ return {active:D.on,dy:Math.round(D.dy*10)/10,scale:Math.round((1-Math.min(D.dy/DH(),1)*0.35)*1000)/1000}; },
+    get from(){ return {tab:from.tab,folder:from.folder}; },
     go:slideBy,
     zoom:(s,fx,fy)=>zoomTo(s,fx,fy,true,true)
   };
@@ -2626,7 +2714,7 @@ function wireCalc(){
     [...mode.querySelectorAll("[data-mode]")].forEach(x=>x.classList.toggle("on",x===b));
     document.getElementById("mortgage-form").hidden = S.calcMode!=="mortgage";
     document.getElementById("tax-form").hidden = S.calcMode!=="tax";
-    document.getElementById("calc-title").textContent = S.calcMode==="tax"?"个税计算":"房贷计算";
+    document.getElementById("calc-title").textContent = "贷税计算";   /* R11-01：顶栏恒为 App 名；「房贷计算 / 个税计算」只是分段控件的功能名 */
   };
   const rep=document.getElementById("repayment");
   rep.onclick=(e)=>{
