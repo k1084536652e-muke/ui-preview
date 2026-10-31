@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="计算器B">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261031145036"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261031145037"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest-b.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -389,6 +389,18 @@ mark.hl{background:none;color:var(--danger);font-weight:650}
 .viewer .vbar b{font-size:15px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .viewer .vbtn{height:36px;padding:0 12px;border-radius:18px;background:rgba(40,40,42,.7);color:#fff;font-size:14px;display:flex;align-items:center;gap:2px;flex:0 0 auto}
 .viewer .vbtn svg.i{width:20px;height:20px}
+/* R10-04/06/07：详情页横向翻页——外壳仍用 .viewer（#000，不随白天/黑夜主题）；内部一条轨道 + 三个槽位（上一张 / 当前 / 下一张），
+   槽位宽 = 屏宽，槽位之间留 18px 间隙，间隙处露出外壳的黑色；轨道只做 translate3d，间隙不画任何元素。 */
+.viewer .vrail{position:absolute;inset:0;overflow:hidden;touch-action:none}   /* 整个翻页区域（含视频槽位 / 槽位间隙）不交给浏览器手势，否则触屏横滑会被接管并收到 pointercancel */
+.viewer .vtrack{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;will-change:transform}
+.viewer .vslot{position:relative;flex:0 0 100%;height:100%;overflow:hidden}
+.viewer .vslot+.vslot{margin-left:18px}
+.viewer .vslot .img{touch-action:none}
+/* R10-08：相邻槽位是不挂 Plyr 的裸 video（只当封面用），按 contain 铺满槽位，与 Plyr 里的画面同尺寸 */
+.viewer .vstage>video{width:100%;height:100%;object-fit:contain;display:block}
+/* R10-10：不是原始适配大小（scale>1）时顶栏自动淡出，写法与 .vplayer.chrome-hidden 一致 */
+.viewer .vbar{transition:opacity .3s ease,transform .3s ease}
+.viewer.vbar-hidden .vbar{opacity:0;transform:translateY(-8px);pointer-events:none}
 /* 统一对话框：标题 + 可选灰字说明 + 可选输入框 + 行内错误 + 两个按钮（右侧为主操作，危险操作为红色） */
 .dlg-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:var(--z-modal);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .18s ease}
 .dlg{width:min(300px,100%);background:var(--sheet);border-radius:16px;overflow:hidden;text-align:center;transform:scale(1.06);transition:transform .2s cubic-bezier(.2,.9,.3,1)}
@@ -1735,7 +1747,8 @@ function bindSegDrag(){
 /* §60 左缘右滑返回（iOS 风格）：起点在左缘 ~20px，右滑达阈值或速度阈值后执行与点 ‹ 相同动作。
    非长按后滑动；对话框/进度遮罩打开时不触发；中屏横向拖仍留给多选拖选。
    相册内子页（文件夹/设置子页/文档）与 ‹ 共用 navBack*，且禁止跟手平移 #v-album——
-   整壳滑走会露底（虚空/计算器伪装），表现为「右滑退出到计算器封面」。仅查看器浮层可跟手滑出。 */
+   整壳滑走会露底（虚空/计算器伪装），表现为「右滑退出到计算器封面」。
+   详情页查看器内横滑已改作翻页（R10-04），不再跟手滑出、也不关闭，退出只用左上「返回」。 */
 function navBackFolder(){ S.folder=null; resetModes(); render(); }
 function navBackSub(){ S.sub=null; render(); }
 function navBackDoc(){ S.doc=null; if(S.plusResume){ S.plusResume=false; S.plus=true; reopenPlus=true; } render(); reopenPlus=false; }
@@ -1754,7 +1767,8 @@ function edgeBackTarget(){
   if(S.view!=="album") return null;
   if(edgeBackBlocked()) return null;
   const viewer=document.querySelector("#layer>.viewer");
-  if(viewer) return {el:viewer, act:()=>navBackViewer(viewer)};
+  /* R10-04：详情页内横向滑动一律用于翻页，取消该页左缘右滑返回（退出只用左上「返回」） */
+  if(viewer) return null;
   /* el:null → 不跟手平移 #v-album（避免整壳滑出露计算器底）；act 与顶栏 ‹ 同函数 */
   if(S.doc) return {el:null, act:navBackDoc};
   if(S.sub) return {el:null, act:navBackSub};
@@ -2226,37 +2240,47 @@ function prompt2(title, value, suffix, onOk){
 
 function findItem(id){ return ITEMS.find(x=>x.id===id)||(S.folder?folderItems().find(x=>x.id===id):null); }
 const PLYR_I18N={restart:"重新播放",rewind:"后退 {seektime} 秒",play:"播放",pause:"暂停",fastForward:"快进 {seektime} 秒",seek:"跳转",seekLabel:"{currentTime} / {duration}",played:"已播放",buffered:"已缓冲",currentTime:"当前时间",duration:"时长",volume:"音量",mute:"静音",unmute:"取消静音",enterFullscreen:"全屏",exitFullscreen:"退出全屏",settings:"设置",menuBack:"返回上一级",speed:"播放速度",normal:"正常",quality:"画质",loop:"循环",start:"开始",end:"结束",all:"全部",reset:"重置",disabled:"关闭",enabled:"开启"};
-/* 视频播放页：Plyr。正式应用中 src 为解密后 Blob 的 object URL（URL.createObjectURL），关闭时 revoke。 */
-function openVideo(it){
-  const layer=document.getElementById("layer");
-  const v=document.createElement("div");
-  v.className="viewer vplayer";
-  v.innerHTML=`<div class="vstage"><video playsinline webkit-playsinline preload="metadata" src="media/demo.mp4"></video>
-      <div class="vseek l">−10 秒</div><div class="vseek r">+10 秒</div></div>
-    <div class="vbar"><button type="button" class="vbtn" data-x="back">${ic("chevl")}返回</button>
-    <b>${esc(it.name)}</b>
-    <button type="button" class="vbtn" data-x="ren">${ic("pen")}重命名</button></div>`;
-  layer.appendChild(v);
-  const video=v.querySelector("video");
-  let player=null;
-  if(window.Plyr){
-    player=new Plyr(video,{
-      controls:["play-large","rewind","play","fast-forward","progress","current-time","duration","mute","volume","settings","fullscreen"],
-      settings:["speed"], speed:{selected:1,options:[0.5,0.75,1,1.25,1.5,2]}, seekTime:10,
-      invertTime:false, toggleInvert:false, displayDuration:true, hideControls:true, resetOnEnd:false,
-      fullscreen:{enabled:true,fallback:true,iosNative:true},
-      tooltips:{controls:false,seek:true}, keyboard:{focused:true,global:false},
-      iconUrl:"vendor/plyr/plyr.svg", blankVideo:"vendor/plyr/blank.mp4", i18n:PLYR_I18N
-    });
-    player.on("controlshidden",()=>v.classList.add("chrome-hidden"));
-    player.on("controlsshown",()=>v.classList.remove("chrome-hidden"));
-    v._player=player;
-  } else { video.controls=true; }
+/* ========== 详情页查看器：照片 / 视频统一横向翻页（R10-04 / 06 / 07 / 08 / 10） ==========
+   外壳仍是 .viewer（#000，不随主题；z-index / #layer>.viewer 选择器不变），内部一条轨道 + 三槽位（上一张 / 当前 / 下一张）。
+   正式应用中照片背景与视频 src 都来自解密后 Blob 的 object URL（URL.createObjectURL），关闭时 revoke。 */
+const PAGER_GAP=18;   /* R10-07：槽位间隙 18px（取 16–20 中间值），间隙即外壳的黑色 */
+const PAGER_T="transform .3s cubic-bezier(.2,.9,.3,1)";   /* 时长沿用 §46 的 .3s 量级，缓动取项目既有的 cubic-bezier(.2,.9,.3,1)（.dlg / ebCancel 回弹） */
+const noMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* R10-04：顺序 = 点开时所在列表（首页 / 搜索结果 / 文件夹详情），与 selectableIds 同口径过滤，去掉文档类 */
+function viewerItems(id){
+  const src=curCtx()==="folder"?folderItems().filter(it=>matchQ(it.name)&&matchF(it)):filteredItems();
+  const ids=src.filter(it=>!it.doc).map(it=>it.id);
+  return ids.includes(id)?ids:[id];   /* 兜底：当前项被筛选排除时只显示这一张（不循环、不越界） */
+}
+/* 槽位里的 muted 只给「封面用」的相邻槽位（相邻项不挂 Plyr）；当前槽位由 renderSlots() 在挂 Plyr 前摘掉，见下 */
+function slotHTML(it){
+  if(!it) return `<div class="vslot"></div>`;
+  if(it.video) return `<div class="vslot" data-slot="${it.id}"><div class="vstage"><video playsinline webkit-playsinline muted preload="metadata" src="media/demo.mp4#t=0.1"></video>
+      <div class="vseek l">−10 秒</div><div class="vseek r">+10 秒</div></div></div>`;
+  return `<div class="vslot" data-slot="${it.id}"><div class="img" style="background-image:${photo(it.seed,it.kind)}"></div></div>`;
+}
+/* R10-08：未播放时显示视频第一帧——src 带媒体片段 #t=0.1（iOS Safari 只 preload=metadata 时常不解码画面，
+   片段会让它直接渲染该帧）；metadata 到了再 seek 到约 0.1s 兜底（第 0 帧常是纯黑），滑到视频时不黑屏 */
+function vFirstFrame(video){
+  const seek=()=>{ if(video.dataset.ff) return; video.dataset.ff="1"; try{ video.currentTime=0.1; }catch(_){} };
+  if(video.readyState>=1) seek(); else video.addEventListener("loadedmetadata",seek,{once:true});
+}
+/* 视频槽位挂 Plyr：控件集 / 速度菜单 / i18n / chrome-hidden / 双击 ±10 秒全部沿用原 openVideo，只是把作用域收到当前槽位 */
+function mountPlyr(host, video, stage){
+  const player=new Plyr(video,{
+    controls:["play-large","rewind","play","fast-forward","progress","current-time","duration","mute","volume","settings","fullscreen"],
+    settings:["speed"], speed:{selected:1,options:[0.5,0.75,1,1.25,1.5,2]}, seekTime:10,
+    invertTime:false, toggleInvert:false, displayDuration:true, hideControls:true, resetOnEnd:false,
+    fullscreen:{enabled:true,fallback:true,iosNative:true},
+    tooltips:{controls:false,seek:true}, keyboard:{focused:true,global:false},
+    iconUrl:"vendor/plyr/plyr.svg", blankVideo:"vendor/plyr/blank.mp4", i18n:PLYR_I18N
+  });
+  player.on("controlshidden",()=>host.classList.add("chrome-hidden"));
+  player.on("controlsshown",()=>host.classList.remove("chrome-hidden"));
   /* 双击 / 双指点左右三分之一：−10 / +10 秒（中间保留 Plyr 的双击全屏） */
-  const stage=v.querySelector(".vstage");
   let last=0, lastSide="";
   const sideOf=x=>{ const r=stage.getBoundingClientRect(), f=(x-r.left)/r.width; return f<1/3?"l":f>2/3?"r":""; };
-  const bubble=side=>{ const b=v.querySelector(".vseek."+side); b.classList.add("show"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("show"),500); };
+  const bubble=side=>{ const b=stage.querySelector(".vseek."+side); if(!b) return; b.classList.add("show"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("show"),500); };
   stage.addEventListener("pointerup",e=>{
     if(e.target.closest(".plyr__controls,.plyr__menu__container,.plyr__control--overlaid")) return;
     const side=sideOf(e.clientX), now=Date.now();
@@ -2268,50 +2292,253 @@ function openVideo(it){
     last=now; lastSide=side;
   },true);
   stage.addEventListener("dblclick",e=>{ if(sideOf(e.clientX)) e.stopPropagation(); },true);
-  const close=()=>{ try{ player&&player.destroy(); }catch(_){} v.remove(); };
-  v.addEventListener("click",(e)=>{
+  return player;
+}
+function openViewer(id){
+  const it0=findItem(id);
+  if(!it0||it0.doc){ toast(it0?("文档："+it0.name):"无法打开"); return; }
+  const items=viewerItems(id);
+  let idx=Math.max(0,items.indexOf(id));
+  const layer=document.getElementById("layer");
+  const v=document.createElement("div");
+  v.className="viewer vpager";
+  v.innerHTML=`<div class="vrail"><div class="vtrack"></div></div>
+    <div class="vbar"><button type="button" class="vbtn" data-x="back">${ic("chevl")}返回</button>
+    <b></b>
+    <button type="button" class="vbtn" data-x="ren">${ic("pen")}重命名</button></div>`;
+  layer.appendChild(v);
+  const rail=v.querySelector(".vrail"), track=v.querySelector(".vtrack"), bar=v.querySelector(".vbar");
+  const cur=()=>findItem(items[idx]);
+  const curImg=()=>{ const s=track.children[1]; return s?s.querySelector(".img"):null; };
+  const W=()=>rail.clientWidth||v.clientWidth||innerWidth;
+  const Z={s:1,tx:0,ty:0};   /* R10-10 当前照片的缩放 / 平移；s=1 即原始适配大小 */
+  let player=null, mode=null, moved=false, dx=0, x0=0, y0=0, t0=0, panX=0, panY=0, pinch=null;
+  let lastTap=0, lastX=0, lastY=0, tapSwallow=false;   /* 横拖起手于大播放按钮时，吞掉松手后那一次 click */
+  const P=new Map();   /* 活动指针 id → {x,y}：一指翻页 / 放大后平移，两指捏合 */
+  /* 轨道定位：x=0 表示当前槽位正对屏幕；槽位步长 = 屏宽 + 间隙 */
+  function place(x,anim){
+    track.style.transition=anim&&!noMotion()?PAGER_T:"none";
+    track.style.transform="translate3d("+(-(W()+PAGER_GAP)+x)+"px,0,0)";
+  }
+  /* 照片按 contain 铺在槽位里的实际画面尺寸（用背景图自然宽高比；取不到按方形兜底） */
+  function imgBox(im){
+    const w=W(), h=rail.clientHeight||innerHeight, ar=im._ar||1;
+    return w/h>ar?{w:h*ar,h}:{w,h:w/ar};
+  }
+  function loadAspect(im){
+    if(im._ar||im._arPending) return;
+    im._arPending=true;
+    const m=/url\((["']?)(.*?)\1\)/.exec(getComputedStyle(im).backgroundImage);
+    if(!m) return;
+    const probe=new Image();
+    probe.onload=()=>{ if(probe.naturalWidth&&probe.naturalHeight) im._ar=probe.naturalWidth/probe.naturalHeight; };
+    probe.src=m[2];
+  }
+  function paintZoom(){ const im=curImg(); if(im) im.style.transform="translate3d("+Z.tx+"px,"+Z.ty+"px,0) scale("+Z.s+")"; }
+  /* R10-10：缩放到 s（以屏幕坐标 fx / fy 为不动点）；最大 4 倍，不小于适配大小（捏合过程中 soft 允许阻尼回弹）；
+     放大后平移限制在图片边界内；只要不是适配大小 → 顶栏自动淡出 */
+  function zoomTo(s,fx,fy,anim,soft){
+    const im=curImg(); if(!im) return;
+    if(s>1) loadAspect(im);
+    const r=rail.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    s=Math.min(4,Math.max(soft?0.6:1,s));
+    const k=s/Z.s, px=(fx==null?cx:fx)-cx, py=(fy==null?cy:fy)-cy;
+    const box=imgBox(im);
+    const mx=Math.max(0,(box.w*s-r.width)/2), my=Math.max(0,(box.h*s-r.height)/2);
+    Z.s=s;
+    Z.tx=Math.min(mx,Math.max(-mx,px*(1-k)+k*Z.tx));
+    Z.ty=Math.min(my,Math.max(-my,py*(1-k)+k*Z.ty));
+    im.style.transition=anim&&!noMotion()?"transform .22s cubic-bezier(.2,.9,.3,1)":"none";
+    paintZoom();
+    v.classList.toggle("vbar-hidden",Z.s>1.001);
+  }
+  function resetZoom(){
+    const im=curImg();
+    if(im){ Z.s=1; Z.tx=0; Z.ty=0; im.style.transition="none"; im.style.transform=""; }
+    v.classList.remove("vbar-hidden");
+  }
+  /* R10-10：双击放大到约 2.5 倍（以点击点为中心）；放大状态下双击回到适配大小并恢复顶栏 */
+  function doubleTap(x,y){ if(Z.s>1.001) zoomTo(1,null,null,true); else zoomTo(2.5,x,y,true); }
+  function syncBar(){ const it=cur(); bar.querySelector("b").textContent=it?it.name:""; }
+  /* 重排三槽位：先销毁 Plyr、重建槽位（预渲染新的相邻项，切换后不闪），再只给「当前」槽位挂 Plyr */
+  function renderSlots(){
+    track.querySelectorAll("video").forEach(x=>{ try{ x.pause(); }catch(_){} });
+    if(player){ try{ player.destroy(); }catch(_){} player=null; v._player=null; }
+    track.innerHTML=slotHTML(findItem(items[idx-1]||""))+slotHTML(cur())+slotHTML(findItem(items[idx+1]||""));
+    track.querySelectorAll("video").forEach(vFirstFrame);   /* 相邻槽位也出第一帧，滑到视频时不黑屏 */
+    place(0,false);
+    v.classList.toggle("vplayer",!!(cur()&&cur().video));
+    v.classList.remove("chrome-hidden");
+    const slot=track.children[1], video=slot?slot.querySelector("video"):null;
+    /* R10-08 修正：两侧槽位的 muted 只服务于封面预载（相邻项不挂 Plyr）；「当前」槽位是用户真正播放的那一支，
+       必须在这里先取消静音——Plyr 构造时会把 media 的 muted 属性读成 config.muted=true，控件随即显示静音图标、
+       点播放没声音。去属性 + muted=false 后与改前 openVideo 一致：默认有声音、音量图标为非静音。翻页时同一路径生效。 */
+    if(video){ video.muted=false; video.removeAttribute("muted"); }
+    if(video&&window.Plyr){ player=mountPlyr(v,video,slot.querySelector(".vstage")); v._player=player; }
+    else if(video) video.controls=true;   /* 无 Plyr 时退回原生控件 */
+    syncBar();
+  }
+  function onChangePage(){
+    resetZoom();
+    renderSlots();
+    if(typeof pager.onChange==="function") pager.onChange(idx,cur());
+  }
+  /* 切换一屏；手势与程序调用（2b 幻灯片用 v._pager.go(±1)）走同一条过渡与同一个间隙 */
+  /* 切换过渡（300ms）期间又按下开始拖动：先把上一次切换「结算」掉——清定时器、同步 idx 变化 + renderSlots 归位，
+     再以新起点开始本次拖动；否则 place() 跳位与 done() 重置轨道会跟手指错位（iOS 上连续快速翻页很常见）。
+     动画期间再调 go() 直接返回 false（不排队），避免 done() 二次推进。 */
+  let slideTimer=0, slideDir=0, slideResolve=null;
+  function settleSlide(){
+    if(!slideTimer) return false;
+    clearTimeout(slideTimer); slideTimer=0;
+    const d=slideDir, res=slideResolve; slideDir=0; slideResolve=null;
+    idx+=d>0?1:-1;
+    onChangePage();
+    if(res) res(true);
+    return true;
+  }
+  function slideBy(dir){
+    if(!dir||(dir>0?idx>=items.length-1:idx<=0)) return Promise.resolve(false);
+    if(slideTimer) return Promise.resolve(false);   /* 动画中：忽略，不排队 */
+    const step=W()+PAGER_GAP;
+    track.style.transition=!noMotion()?PAGER_T:"none";
+    track.style.transform="translate3d("+(-step-dir*step)+"px,0,0)";
+    const done=()=>{ idx+=dir>0?1:-1; onChangePage(); return true; };
+    if(noMotion()) return Promise.resolve(done());
+    slideDir=dir;
+    return new Promise(res=>{
+      slideResolve=res;
+      slideTimer=setTimeout(()=>{ slideTimer=0; slideDir=0; slideResolve=null; res(done()); },300);
+    });
+  }
+  const pager={go:slideBy,get index(){return idx},items:items.slice(),onChange:null};   /* 给 2b 幻灯片预留 */
+  v._pager=pager;
+  /* 手势：一指横拖翻页 / 放大后一指平移，两指捏合缩放，双击放大或还原（R10-04 / 06 / 10）。
+     视频页从 Plyr 控件区域起手不翻页；双击 ±10 秒仍由 mountPlyr 处理，两者互不干扰。 */
+  rail.addEventListener("pointerdown",e=>{
+    if(e.button>0) return;
+    /* 大播放按钮（.plyr__control--overlaid）正好压在视频中间、也是"视频中间区域横滑"的落点，不能把翻页起手挡掉：
+       点按（未位移）仍交给按钮播放，横拖由 tapSwallow 在 pointerup 后吞掉这次 click（见下）。 */
+    if(e.target.closest(".plyr__controls,.plyr__menu__container,.vseek")) return;
+    settleSlide();   /* 上一次切换动画未结算：先落定 idx 并重排槽位，再从新槽位起拖 */
+    tapSwallow=false;
+    P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(P.size===2){ startPinch(); return; }
+    if(P.size>2) return;
+    mode=null; moved=false; dx=0; x0=e.clientX; y0=e.clientY; t0=performance.now();
+  },{passive:true});
+  function startPinch(){
+    const im=curImg();
+    if(!im||(cur()&&cur().video)) return;   /* 只有照片支持缩放 */
+    if(mode==="page") place(0,true);
+    mode="pinch"; moved=true; loadAspect(im);
+    const [a,b]=[...P.values()];
+    pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,s:Z.s};
+  }
+  function movePinch(){
+    if(!pinch) return;
+    const [a,b]=[...P.values()];
+    const d=Math.hypot(a.x-b.x,a.y-b.y)||1;
+    let s=pinch.s*d/pinch.d;
+    if(s<1) s=1+(s-1)*0.45;   /* 低于适配大小：阻尼，松手回弹 */
+    zoomTo(s,(a.x+b.x)/2,(a.y+b.y)/2,false,true);
+  }
+  rail.addEventListener("pointermove",e=>{
+    if(!P.has(e.pointerId)) return;
+    P.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(P.size>=2){ if(mode==="pinch") movePinch(); return; }
+    const ax=e.clientX-x0, ay=e.clientY-y0;
+    if(!mode){
+      if(Math.hypot(ax,ay)<8) return;
+      moved=true;
+      if(Z.s>1.001){ mode="pan"; panX=Z.tx; panY=Z.ty; }   /* 放大状态：单指拖动平移，不触发翻页 */
+      else if(Math.abs(ay)>Math.abs(ax)*1.15) mode="vertical";   /* 竖向为主的拖动不翻页 */
+      else mode="page";
+    }
+    if(mode==="vertical") return;
+    if(e.cancelable) e.preventDefault();
+    if(mode==="pan"){
+      const im=curImg(); if(!im) return;
+      const r=rail.getBoundingClientRect(), box=imgBox(im);
+      const mx=Math.max(0,(box.w*Z.s-r.width)/2), my=Math.max(0,(box.h*Z.s-r.height)/2);
+      Z.tx=Math.min(mx,Math.max(-mx,panX+ax));
+      Z.ty=Math.min(my,Math.max(-my,panY+ay));
+      im.style.transition="none"; paintZoom();
+      return;
+    }
+    /* 跟手：两张连续可见、边界线跟手；首尾各按 1/3 阻尼（不循环） */
+    let x=ax;
+    if((idx===0&&x>0)||(idx===items.length-1&&x<0)) x=x/3;
+    dx=x; place(x,false);
+  },{passive:false});
+  function endPointer(e,cancelled){
+    if(!P.has(e.pointerId)) return;
+    P.delete(e.pointerId);
+    if(mode==="pinch"){
+      if(P.size>=2) return;
+      pinch=null;
+      if(Z.s<1) zoomTo(1,null,null,true);   /* 缩小过头：松手弹回适配大小 */
+      if(P.size===1){ const p=[...P.values()][0]; x0=p.x; y0=p.y; panX=Z.tx; panY=Z.ty; mode=Z.s>1.001?"pan":"none"; return; }
+      mode=null; return;
+    }
+    if(P.size) return;
+    /* pointercancel（系统手势 / 触摸被接管）：只回弹归位，绝不触发切换，也不参与双击判定 */
+    if(cancelled){
+      if(mode==="page"&&moved) place(0,true);
+      mode=null; moved=false; dx=0; return;
+    }
+    const dt=Math.max(1,performance.now()-t0), vel=dx/dt, w=W(), dir=dx<0?1:-1;
+    const canSwitch=dir>0?idx<items.length-1:idx>0;
+    /* R10-06：位移过半，或快速甩动（速度阈值沿用 EB_VEL=0.45 px/ms 且方向与位移一致）→ 切换，否则回弹 */
+    if(mode==="page"&&moved&&canSwitch&&(Math.abs(dx)>w/2||(Math.abs(dx)>28&&Math.abs(vel)>=EB_VEL&&Math.sign(vel)===Math.sign(dx)))) slideBy(dir);
+    else if(mode==="page"&&moved) place(0,true);
+    /* 单击 / 双击：判定窗口 300ms（与视频 ±10 秒一致）；不动才算点击，横拖后不误触发 */
+    if(!moved&&!(cur()&&cur().video)){
+      const now=performance.now();
+      if(lastTap&&now-lastTap<300&&Math.hypot(e.clientX-lastX,e.clientY-lastY)<80){ doubleTap(e.clientX,e.clientY); lastTap=0; }
+      else { lastTap=now; lastX=e.clientX; lastY=e.clientY; }
+    }
+    if(moved) tapSwallow=true;   /* 横拖过：后续 click 若是大播放按钮就吞掉（点按不受影响） */
+    mode=null; moved=false; dx=0;
+  }
+  rail.addEventListener("pointerup",e=>endPointer(e,false),{passive:true});
+  rail.addEventListener("pointercancel",e=>endPointer(e,true),{passive:true});
+  /* 横拖收尾后浏览器仍可能给起手元素（大播放按钮）派发 click —— 这里吃掉，避免翻页同时开始播放 */
+  rail.addEventListener("click",e=>{
+    if(tapSwallow&&e.target.closest(".plyr__control--overlaid")){ e.preventDefault(); e.stopPropagation(); }
+    tapSwallow=false;
+  },true);
+  function close(){
+    if(slideTimer){ clearTimeout(slideTimer); slideTimer=0; slideDir=0; slideResolve=null; }   /* 关窗后不再有悬空的切换结算 */
+    track.querySelectorAll("video").forEach(x=>{ try{ x.pause(); }catch(_){} });
+    try{ player&&player.destroy(); }catch(_){}
+    v.remove();
+  }
+  v.addEventListener("click",e=>{
     const b=e.target.closest("[data-x]");
     if(!b) return;
     if(b.dataset.x==="back"){ close(); return; }
-    if(b.dataset.x==="ren"){
-      const {base,ext}=splitName(it.name);
-      prompt2("重命名", base, ext||".mp4", (val)=>{
+    if(b.dataset.x==="ren"){   /* 重命名作用于「当前」项，文件名随翻页更新 */
+      const it=cur(); if(!it) return;
+      const {base,ext}=splitName(it.name), def=it.video?".mp4":".jpg";
+      prompt2("重命名", base, ext||def, (val)=>{
         if(!val.trim()) return "名称不能为空";
-        it.name=val.trim()+(ext||".mp4");
-        v.querySelector(".vbar b").textContent=it.name;
-        toast("已重命名");
+        it.name=val.trim()+(ext||def);
+        syncBar(); toast("已重命名");
         return true;
       });
     }
   });
-  return v;
-}
-function openViewer(id){
-  const it=findItem(id);
-  if(it&&it.video&&!it.doc){ openVideo(it); return; }
-  if(!it||it.doc){ toast(it?("文档："+it.name):"无法打开"); return; }
-  const layer=document.getElementById("layer");
-  const v=document.createElement("div");
-  v.className="viewer";
-  v.innerHTML=`<div class="img" style="background-image:${photo(it.seed,it.kind)}"></div>
-    <div class="vbar"><button type="button" class="vbtn" data-x="back">${ic("chevl")}返回</button>
-    <b>${esc(it.name)}</b>
-    <button type="button" class="vbtn" data-x="ren">${ic("pen")}重命名</button></div>`;
-  layer.appendChild(v);
-  v.onclick=(e)=>{
-    const b=e.target.closest("[data-x]");
-    if(!b) return;
-    if(b.dataset.x==="back"){ v.remove(); return; }
-    if(b.dataset.x==="ren"){
-      const {base,ext}=splitName(it.name);
-      prompt2("重命名", base, ext||".jpg", (val)=>{
-        if(!val.trim()) return "名称不能为空";
-        it.name=val.trim()+(ext||".jpg");
-        v.querySelector("b").textContent=it.name;
-        toast("已重命名");
-        return true;
-      });
-    }
+  renderSlots();
+  window.__pager={   /* 验收调试（只读查询）：当前 index / items 的 id 列表 / 当前 scale / 轨道 transform */
+    get index(){ return idx; },
+    get ids(){ return items.slice(); },
+    get scale(){ return Z.s; },
+    get transform(){ return track.style.transform; },
+    get gap(){ return PAGER_GAP; },
+    get slots(){ return [...track.children].map(s=>s.dataset.slot||""); },
+    go:slideBy,
+    zoom:(s,fx,fy)=>zoomTo(s,fx,fy,true,true)
   };
 }
 
