@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="房贷计算器">
 <meta name="format-detection" content="telephone=no">
-<meta name="build" content="20261031005711"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
+<meta name="build" content="20261031145036"><!-- publish.sh 写入发布时间戳；打开时比对线上版本，自动换新 -->
 <!-- 与正式应用相同：manifest（display: standalone）+ 图标，使主屏测试有代表性 -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon.png?v=10">
@@ -673,9 +673,9 @@ li.done>span:last-child{color:var(--muted);text-decoration:line-through}
       <div class="chead"><div><small>综合所得 · 月度</small><b>个税估算</b></div><span class="pill">起征点 5,000</span></div>
       <div class="group">
         <label class="row frow" id="fr-income"><span class="lab">税前月收入</span><input id="tax-income" inputmode="decimal" placeholder="请输入金额"><span class="unit">元</span></label>
+        <label class="row frow"><span class="lab">年终奖收入</span><input id="tax-bonus" inputmode="decimal" value="0"><span class="unit">元</span></label>
         <label class="row frow"><span class="lab">五险一金</span><input id="tax-insurance" inputmode="decimal" value="0"><span class="unit">元</span></label>
         <label class="row frow"><span class="lab">专项附加扣除</span><input id="tax-deduction" inputmode="decimal" value="0"><span class="unit">元</span></label>
-        <label class="row frow"><span class="lab">年终奖收入</span><input id="tax-bonus" inputmode="decimal" value="0"><span class="unit">元</span></label>
       </div>
       <div class="ferr" id="tax-error" hidden></div>
       <button type="submit" class="cta" id="tax-submit">计算</button>
@@ -2378,7 +2378,8 @@ function wireCalc(){
     const income=parseAmount(document.getElementById("tax-income").value);
     const ins=parseAmount(document.getElementById("tax-insurance").value);
     const ded=parseAmount(document.getElementById("tax-deduction").value);
-    const bonus=parseAmount(document.getElementById("tax-bonus").value);
+    const bonusText=document.getElementById("tax-bonus").value.trim();
+    const bonus=bonusText===""?0:parseAmount(bonusText); /* R10-01：年终奖留空按 0 计算，仅非空且解析失败才提示 */
     const err=document.getElementById("tax-error");
     const res=document.getElementById("tax-result");
     err.hidden=true; res.hidden=true;
